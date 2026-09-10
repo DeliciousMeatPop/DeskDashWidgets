@@ -82,6 +82,17 @@
         <div class="wx-forecast" id="wx-forecast"></div>
         <p class="dd-empty wx-empty" id="wx-empty" hidden>Set a Weather location in the taskbar settings.</p>
       </section>
+      <!-- Power menu (opened by right-clicking the dock) -->
+      <section class="page menu-page" id="page-menu" data-page="menu" hidden>
+        <button class="menu-item" data-app="task">Task Manager</button>
+        <button class="menu-item" data-app="terminal">Terminal</button>
+        <button class="menu-item" data-app="explorer">File Explorer</button>
+        <button class="menu-item" data-app="settings">Windows Settings</button>
+        <button class="menu-item" data-app="control">Control Panel</button>
+        <div class="menu-sep"></div>
+        <button class="menu-item" id="menu-start">Start menu</button>
+        <button class="menu-item" id="menu-taskbar">Taskbar settings…</button>
+      </section>
     </dd-panel>
     <script src="/__sdk/widget-sdk.js"></script>
     <script src="deck.js"></script>
