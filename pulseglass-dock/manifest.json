@@ -84,6 +84,10 @@
     { "key": "netLayout", "type": "select", "label": "Network layout", "options": ["stacked", "side by side"], "default": "side by side",
       "showIf": { "key": "showNet", "equals": true } },
 
+    { "key": "weatherPlace", "type": "text", "label": "Weather location (city)", "placeholder": "London", "default": "" },
+    { "key": "weatherUnits", "type": "select", "label": "Weather units", "options": ["fahrenheit", "celsius"], "default": "fahrenheit" },
+    { "key": "showWeatherChip", "type": "boolean", "label": "Weather in the taskbar", "default": false },
+
     { "key": "edgePadding", "type": "number", "label": "Dock click margin (px)", "min": 0, "max": 80, "default": 25 },
 
     { "key": "badges", "type": "boolean", "label": "Notification badges  (unstable)", "default": false }
@@ -96,6 +100,8 @@
     "systemControls": true,
     "media": true,
     "mediaControls": true,
-    "apps": true
+    "apps": true,
+    "storage": true,
+    "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"] }
   }
 }

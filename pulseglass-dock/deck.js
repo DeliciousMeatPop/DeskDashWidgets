@@ -139,10 +139,56 @@ function setupNetGraph() {
   addEventListener("resize", draw);
 }
 
+// ---- weather --------------------------------------------------------------
+function wxEmoji(code, isDay) {
+  if (code === 0) return isDay ? "☀️" : "🌙";
+  if (code === 1 || code === 2) return isDay ? "🌤️" : "☁️";
+  if (code === 3) return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 57) return "🌦️";
+  if (code >= 61 && code <= 67) return "🌧️";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "🌨️";
+  if (code >= 80 && code <= 82) return "🌧️";
+  if (code >= 95) return "⛈️";
+  return "🌡️";
+}
+function wxDescribe(code, isDay) { try { return dd.weather.describe(code, isDay).label || ""; } catch { return ""; } }
+async function setupWeather() {
+  const st = (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
+  const place = String(st.weatherPlace || "").trim();
+  const units = String(st.weatherUnits || "fahrenheit");
+  const tabBtn = document.getElementById("tab-weather");
+  const nowEl = document.getElementById("wx-now"), fcEl = document.getElementById("wx-forecast"), emptyEl = document.getElementById("wx-empty");
+  tabBtn.hidden = !place;
+  if (!place) { nowEl.hidden = true; fcEl.replaceChildren(); emptyEl.hidden = false; return; }
+  emptyEl.hidden = true;
+  try {
+    const geo = await dd.weather.geocode(place, { cacheKey: "pg" });
+    const [cur, days] = await Promise.all([
+      dd.weather.current({ lat: geo.lat, lon: geo.lon, units }),
+      dd.weather.forecast({ lat: geo.lat, lon: geo.lon, units, scale: "daily", count: 5 }),
+    ]);
+    document.getElementById("wx-glyph").textContent = wxEmoji(cur.code, cur.isDay);
+    document.getElementById("wx-temp").textContent = Math.round(cur.temperature) + "°";
+    document.getElementById("wx-desc").textContent = wxDescribe(cur.code, cur.isDay);
+    document.getElementById("wx-place").textContent = geo.label || place;
+    nowEl.hidden = false;
+    fcEl.replaceChildren(...(days || []).map((d) => {
+      const el = document.createElement("div"); el.className = "wx-day";
+      el.innerHTML = `<span class="wx-day__d"></span><span class="wx-day__g"></span><span class="wx-day__t"><b></b><i></i></span>`;
+      el.querySelector(".wx-day__d").textContent = new Date(d.time).toLocaleDateString([], { weekday: "short" });
+      el.querySelector(".wx-day__g").textContent = wxEmoji(d.code, d.isDay);
+      el.querySelector(".wx-day__t b").textContent = Math.round(d.temperature) + "°";
+      if (d.low != null) el.querySelector(".wx-day__t i").textContent = Math.round(d.low) + "°";
+      return el;
+    }));
+  } catch (e) { dd.log("warn", "weather failed", (e && e.code) || String(e)); nowEl.hidden = true; emptyEl.textContent = "Weather unavailable."; emptyEl.hidden = false; }
+}
+
 // ---- tabs -----------------------------------------------------------------
 function setupTabs() {
   const tabs = Array.from(document.querySelectorAll(".tab"));
-  const pages = { np: "page-np", sys: "page-sys", net: "page-net" };
+  const pages = { np: "page-np", sys: "page-sys", net: "page-net", weather: "page-weather" };
   let active = "np";
   try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch {}
   function show(name) {
@@ -211,6 +257,7 @@ async function main() {
 
   setupNetGraph();
   setupTabs();
+  void setupWeather();
   addEventListener("resize", updateMarquee);
 }
 

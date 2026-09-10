@@ -35,6 +35,10 @@ const sepLeftStart = document.getElementById("sep-left-start");
 const sepStartRight = document.getElementById("sep-start-right");
 const sepInfoLeft = document.getElementById("sep-info-left");
 const sepFar = document.getElementById("sep-far");
+const weatherEl = document.getElementById("weather");
+const weatherGlyph = document.getElementById("weather-glyph");
+const weatherTemp = document.getElementById("weather-temp");
+const sepWeather = document.getElementById("sep-weather");
 let recycleId = null;
 
 const BANDS = 500, AUDIO_HOLD_MS = 400;
@@ -327,6 +331,48 @@ function refreshBadges() {
   for (const node of [...badgesEl.children]) if (!keep.has(node.dataset.key)) node.remove();
 }
 
+// ---- weather (taskbar chip) -----------------------------------------------
+let weatherPlace = "", weatherUnits = "fahrenheit", showWeatherChip = false;
+let weatherGeo = null, weatherTimer = null;
+function wxEmoji(code, isDay) {
+  if (code === 0) return isDay ? "☀️" : "🌙";
+  if (code === 1 || code === 2) return isDay ? "🌤️" : "☁️";
+  if (code === 3) return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 57) return "🌦️";
+  if (code >= 61 && code <= 67) return "🌧️";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "🌨️";
+  if (code >= 80 && code <= 82) return "🌧️";
+  if (code >= 95) return "⛈️";
+  return "🌡️";
+}
+async function ensureGeo() {
+  const q = weatherPlace.trim();
+  if (!q) { weatherGeo = null; return null; }
+  if (weatherGeo && weatherGeo.query === q) return weatherGeo;
+  try { const g = await dd.weather.geocode(q, { cacheKey: "pg" }); weatherGeo = { ...g, query: q }; }
+  catch (e) { dd.log("warn", "geocode failed", (e && e.code) || String(e)); weatherGeo = null; }
+  return weatherGeo;
+}
+async function refreshWeather() {
+  const show = showWeatherChip && !!weatherPlace.trim();
+  if (!show) { weatherEl.hidden = true; sepWeather.hidden = true; refreshMagHosts(); return; }
+  const geo = await ensureGeo();
+  if (!geo) { weatherEl.hidden = true; sepWeather.hidden = true; return; }
+  try {
+    const cur = await dd.weather.current({ lat: geo.lat, lon: geo.lon, units: weatherUnits });
+    weatherGlyph.textContent = wxEmoji(cur.code, cur.isDay);
+    weatherTemp.textContent = Math.round(cur.temperature) + "°";
+    weatherEl.title = geo.label || weatherPlace;
+    weatherEl.hidden = false; sepWeather.hidden = false;
+  } catch (e) { dd.log("warn", "weather current failed", (e && e.code) || String(e)); }
+}
+function scheduleWeather() {
+  if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; }
+  if (showWeatherChip && weatherPlace.trim()) weatherTimer = setInterval(refreshWeather, 15 * 60 * 1000);
+}
+weatherEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "weather"); } catch {} document.getElementById("deck").click(); });
+
 // ---- running-app colour ---------------------------------------------------
 function updateRunning() {
   for (const e of store.entries.peek()) { const el = apps.appFor && apps.appFor(e.key); if (el) el.classList.toggle("running", !!(e.wins && e.wins.length)); }
@@ -443,6 +489,11 @@ async function main() {
     magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 2));
     breatheOn = s.breathing !== false; breatheSecs = s.breathingInterval ?? 5;
     badgesOn = s.badges === true;
+    weatherPlace = String(s.weatherPlace || "");
+    weatherUnits = String(s.weatherUnits || "fahrenheit");
+    showWeatherChip = s.showWeatherChip === true;
+    scheduleWeather();
+    void refreshWeather();
     warnAt = s.vitalsWarnAt ?? 50; dangerAt = s.vitalsDangerAt ?? 90;
     const rs = document.documentElement.style;
     rs.setProperty("--v-normal", s.vitalsNormalColor || "#e7edf5");

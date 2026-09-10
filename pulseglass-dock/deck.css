@@ -78,3 +78,21 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .lg.down i::before { background: var(--dd-accent); }
 .lg.up i::before { background: var(--dd-success); }
 .lg b { color: var(--dd-text); font-variant-numeric: tabular-nums; font-weight: var(--dd-font-weight-semibold); }
+
+/* ---- weather ---- */
+.weather-page { display: flex; flex-direction: column; gap: var(--dd-space-3); }
+.wx-now { display: flex; align-items: center; gap: var(--dd-space-4); }
+.wx-now[hidden] { display: none; }
+.wx-glyph { font-size: 56px; line-height: 1; }
+.wx-main { display: flex; flex-direction: column; gap: 2px; }
+.wx-temp { font-size: 34px; font-weight: var(--dd-font-weight-bold); font-variant-numeric: tabular-nums; line-height: 1; }
+.wx-desc { color: var(--dd-text); }
+.wx-place { color: var(--dd-text-muted); font-size: var(--dd-text-sm, 13px); }
+.wx-forecast { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--dd-space-2); margin-top: auto; }
+.wx-day { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--dd-space-2) 0; border-radius: var(--dd-radius-md); background: var(--dd-surface-transparent); }
+.wx-day__d { font-size: var(--dd-text-xs, 11px); color: var(--dd-text-muted); }
+.wx-day__g { font-size: 22px; }
+.wx-day__t { font-variant-numeric: tabular-nums; }
+.wx-day__t b { font-weight: var(--dd-font-weight-semibold); }
+.wx-day__t i { color: var(--dd-text-muted); font-style: normal; margin-left: 4px; }
+.wx-empty[hidden] { display: none; }

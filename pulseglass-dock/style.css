@@ -186,6 +186,12 @@ body:not(.net-inline) .net--up::before { content: "↑"; }
 body:not(.net-inline) .net__v { flex: 1; text-align: right; font-size: calc(var(--u) * 11); font-weight: var(--dd-font-weight-medium); }
 body:not(.show-net) .net { display: none; }
 
+/* ---- weather chip ------------------------------------------------------ */
+.weather { display: flex; align-items: center; gap: calc(var(--u) * 4); background: transparent; border: 0; cursor: pointer; color: var(--dd-text); font-family: var(--dd-font-sans); flex: none; padding: 0 var(--spacer, 8px); }
+.weather[hidden] { display: none; }
+.weather__glyph { font-size: calc(var(--u) * 20); line-height: 1; }
+.weather__temp { font-size: calc(var(--u) * 15); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; }
+
 /* ---- tray -------------------------------------------------------------- */
 .tray { flex: none; height: var(--icon); padding: 0 calc(var(--u) * 4); color: var(--dd-text); font-size: calc(var(--u) * 18); }
 .tray::part(separator) { height: calc(var(--icon) * 0.7); }
