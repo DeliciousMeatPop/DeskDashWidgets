@@ -40,14 +40,14 @@
 
     { "key": "showRecycleBin", "type": "boolean", "label": "Recycle Bin", "default": false },
     { "key": "recyclePosition", "type": "select", "label": "Recycle Bin position",
-      "options": ["in the dock", "by start", "left of info", "far right"], "default": "in the dock",
+      "options": ["in the dock", "left edge", "left of info", "far right"], "default": "in the dock",
       "showIf": { "key": "showRecycleBin", "equals": true } },
     { "key": "desktopSrc", "type": "filePath", "label": "Desktop source (blank = Desktop icons)", "placeholder": "leave blank", "pick": "folder",
       "showIf": { "key": "showRecycleBin", "equals": true } },
 
     { "key": "showTools", "type": "boolean", "label": "Tools button", "default": true },
     { "key": "toolsPosition", "type": "select", "label": "Tools button position",
-      "options": ["in the dock", "by start", "left of info", "far right"], "default": "by start",
+      "options": ["in the dock", "left edge", "left of info", "far right"], "default": "left edge",
       "showIf": { "key": "showTools", "equals": true } },
 
     { "key": "magnify", "type": "boolean", "label": "Magnification (master)", "default": true },
@@ -78,7 +78,7 @@
       "options": ["standard", "large", "analog", "worded", "dual"], "default": "standard",
       "showIf": { "key": "showClock", "equals": true } },
     { "key": "clockPosition", "type": "select", "label": "Clock position",
-      "options": ["by start (right)", "by start (left)", "by info (left)", "far right"], "default": "far right",
+      "options": ["left edge (right)", "left edge (left)", "by info (left)", "far right"], "default": "far right",
       "showIf": { "key": "showClock", "equals": true } },
     { "key": "format24h", "type": "boolean", "label": "24-hour clock", "default": false,
       "showIf": { "key": "showClock", "equals": true } },
