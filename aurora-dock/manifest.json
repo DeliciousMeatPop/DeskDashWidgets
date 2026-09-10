@@ -1,67 +1,65 @@
 {
-  "$schema": "./.deskdash/manifest.schema.json",
   "id": "aurora-dock",
   "name": "Aurora Dock",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "apiVersion": 1,
   "minAppVersion": "0.3.5",
-  "description": "A glass dock taskbar with magnification, live number vitals, a movable now-playing panel, a network graph, editable start button and app notification badges.",
+  "description": "A dock-style evolution of Aurora: the living light field, plus true dock magnification, number vitals, an editable start/launcher, a network graph, a movable now-playing deck and app notification badges.",
   "author": "you",
   "kind": "bar",
-  "bar": { "thickness": 96, "reserve": 56 },
-  "edges": ["bottom", "top", "left", "right"],
-  "popout": { "entry": "pane.html" },
-  "fonts": { "use": { "display": "audiowide" } },
-  "permissions": {
-    "taskbar": true,
-    "time": true,
-    "system": true,
-    "media": true,
-    "links": true,
-    "notifications": true
+  "bar": {
+    "thickness": 128,
+    "reserve": 56,
+    "autoHide": { "hideDelay": 150, "revealBand": 2, "slide": 160 }
   },
+  "popout": { "entry": "deck.html" },
   "settings": [
-    "accentColor",
     "pins",
     "systray",
 
+    { "key": "reactivity", "type": "select", "label": "Light field",
+      "options": ["audio and vitals", "audio", "calm"], "default": "audio and vitals" },
+
+    { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
+    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 60 },
+    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 3 },
+    { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
+    { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 45 },
+
+    { "key": "showClock", "type": "boolean", "label": "Clock", "default": true },
     { "key": "clockFace", "type": "select", "label": "Clock style",
-      "options": ["stacked", "digital", "analog", "worded", "dual"], "default": "stacked" },
-    { "key": "clock24h", "type": "boolean", "label": "24-hour time", "default": false },
-    { "key": "clockSeconds", "type": "boolean", "label": "Show seconds", "default": false },
-    { "key": "clockDate", "type": "boolean", "label": "Show date", "default": true },
-    { "key": "dateFormat", "type": "select", "label": "Date format",
-      "options": ["ddd d mmm", "d mmm yyyy", "dd/mm", "mm/dd", "iso"], "default": "ddd d mmm",
-      "showIf": { "key": "clockDate", "equals": true } },
+      "options": ["stacked", "digital", "analog", "worded", "dual"], "default": "stacked",
+      "showIf": { "key": "showClock", "equals": true } },
+    { "key": "format24h", "type": "boolean", "label": "24-hour clock", "default": false,
+      "showIf": { "key": "showClock", "equals": true } },
+    { "key": "clockSeconds", "type": "boolean", "label": "Show seconds", "default": false,
+      "showIf": { "key": "showClock", "equals": true } },
+    { "key": "clockDate", "type": "boolean", "label": "Show date", "default": true,
+      "showIf": { "key": "showClock", "equals": true } },
     { "key": "secondaryTz", "type": "text", "label": "Second time zone (IANA)",
       "placeholder": "America/New_York", "default": "",
       "showIf": { "key": "clockFace", "equals": "dual" } },
 
-    { "key": "startMode", "type": "select", "label": "Start button action",
-      "options": ["windows", "launcher", "link"], "default": "windows" },
     { "key": "startLabel", "type": "text", "label": "Start button label", "placeholder": "Start", "default": "Start" },
-    { "key": "startIcon", "type": "select", "label": "Start button icon",
-      "options": ["logo", "grid", "rocket", "sparkle"], "default": "logo" },
-    { "key": "startUrl", "type": "text", "label": "Start opens (URL or app)",
-      "placeholder": "https://… or notepad.exe", "default": "",
-      "showIf": { "key": "startMode", "equals": "link" } },
+    { "key": "showLauncher", "type": "boolean", "label": "App launcher button", "default": true },
     { "key": "launcherItems", "type": "text", "label": "Launcher shortcuts  (Name|target, comma separated)",
       "placeholder": "Search|https://google.com, Mail|https://mail.google.com",
       "default": "Search|https://www.google.com, Mail|https://mail.google.com, Calendar|https://calendar.google.com, DeskDash|https://www.desktop-dashboard.com",
-      "showIf": { "key": "startMode", "equals": "launcher" } },
+      "showIf": { "key": "showLauncher", "equals": true } },
 
-    { "key": "showCpu", "type": "boolean", "label": "Show CPU %", "default": true },
-    { "key": "showRam", "type": "boolean", "label": "Show RAM %", "default": true },
-    { "key": "showGpu", "type": "boolean", "label": "Show GPU %", "default": true },
-    { "key": "showNet", "type": "boolean", "label": "Show network button", "default": true },
-
-    { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
-    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 55 },
-    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 3 },
-
-    { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
-    { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 45 },
-
+    { "key": "showMedia", "type": "boolean", "label": "Now playing chip", "default": true },
+    { "key": "showVitals", "type": "boolean", "label": "Vitals numbers", "default": true },
+    { "key": "showNet", "type": "boolean", "label": "Network readout", "default": true },
     { "key": "badges", "type": "boolean", "label": "Notification badges", "default": true }
-  ]
+  ],
+  "permissions": {
+    "taskbar": true,
+    "time": true,
+    "audio": true,
+    "system": true,
+    "systemControls": true,
+    "media": true,
+    "mediaControls": true,
+    "links": true
+  }
 }

@@ -1,461 +1,452 @@
-/* Aurora Dock — a glass dock taskbar for DeskDash.
- *
- * Everything the host guarantees is used through the `dd` SDK. Where the SDK
- * surface is not nailed down in the public docs (media/now-playing, window
- * lists, systray), we probe a few plausible shapes and degrade gracefully so
- * the dock never hard-crashes on a host that names a verb differently.
- */
-(() => {
-  "use strict";
+// Aurora Dock — a dock-style evolution of the Aurora bar.
+//
+// It keeps Aurora's living light field (canvas that dances to audio and
+// breathes with the CPU) and its host-driven app strip, and adds the things
+// that make it feel like a dock:
+//   • true magnification — the icon under the pointer rises most and its
+//     neighbours rise proportionally less (Gaussian falloff), driven through
+//     custom properties the component's ::part(lift) reads;
+//   • a breathing pulse on a timer;
+//   • a clock with five faces;
+//   • vitals as number percents;
+//   • notification badges floated over the app strip from window titles.
+//
+// The field code is adapted from Aurora (deskdash.aurora) — same perf
+// contract: the spectrum handler only stashes the frame, the loop paces
+// itself and parks in the calm / low-motion states.
 
-  /* ------------------------------------------------------------------ utils */
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
-  const pct = (frac) => (frac == null ? null : Math.round(clamp(frac, 0, 1) * 100));
+const { create, bindParts, signal, effect, token } = dd.ui;
 
-  function fmtBytes(bps) {
-    if (bps == null) return "–";
-    const u = ["B", "K", "M", "G"];
-    let n = bps, i = 0;
-    while (n >= 1024 && i < u.length - 1) { n /= 1024; i++; }
-    return (n >= 100 || i === 0 ? Math.round(n) : n.toFixed(1)) + u[i];
+const apps = document.getElementById("apps");
+const strip = document.getElementById("bar");
+const canvas = document.getElementById("field");
+const ctx2d = canvas.getContext("2d");
+const clockEl = document.getElementById("clock");
+const clockFace = document.getElementById("clock-face");
+const npEl = document.getElementById("np");
+const vitalsEl = document.getElementById("vitals");
+const startEl = document.getElementById("start");
+const launcherEl = document.getElementById("launcher");
+const badgesEl = document.getElementById("badges");
+
+const BANDS = 500;
+const AUDIO_HOLD_MS = 400;
+const LAYERS = [
+  { token: "--dd-chart-1", scale: 1, shift: 0 },
+  { token: "--dd-chart-2", scale: 0.72, shift: 3 },
+  { token: "--dd-accent", scale: 0.5, shift: 7 },
+];
+
+let store = null;
+let lowMotion = false;
+
+// live settings
+let reactivity = "audio and vitals";
+let format24 = false;
+let clockFaceName = "stacked";
+let clockSeconds = false;
+let clockDate = true;
+let secondaryTz = "";
+let faceOverride = null; // clicking the clock cycles faces locally
+let magnifyOn = true, magStrength = 0.6, magReach = 3;
+let breatheOn = true, breatheSecs = 45;
+let badgesOn = true;
+
+// ---- the light field (adapted from Aurora) --------------------------------
+
+const field = {
+  w: 0, h: 0, cols: 0,
+  target: new Float32Array(0), shown: new Float32Array(0), bands: new Float32Array(BANDS),
+  lastAudioAt: 0, cpu: 0, raf: 0, lastDrawAt: 0,
+  colors: [], accent: [255, 255, 255],
+  torch: { x: 0, a: 0, on: false }, halo: { x: -1, a: 0 },
+};
+
+function rgbOf(name) {
+  ctx2d.fillStyle = token(name, "#888888");
+  const norm = String(ctx2d.fillStyle);
+  if (norm.startsWith("#")) {
+    const n = parseInt(norm.slice(1, 7), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
   }
+  const m = norm.match(/[\d.]+/g) || [];
+  return [Number(m[0]) || 0, Number(m[1]) || 0, Number(m[2]) || 0];
+}
+function readPalette() { field.colors = LAYERS.map((l) => rgbOf(l.token)); field.accent = rgbOf("--dd-accent"); }
+function rgba([r, g, b], a) { return `rgba(${r}, ${g}, ${b}, ${a.toFixed(3)})`; }
 
-  // Try a list of stream shapes; return an unsubscribe fn (or a no-op).
-  function subscribe(candidates, cb) {
-    for (const make of candidates) {
-      try {
-        const un = make(cb);
-        if (typeof un === "function") return un;
-        if (un && typeof un.unsubscribe === "function") return () => un.unsubscribe();
-        if (un !== undefined) return () => {};
-      } catch (_) { /* try next shape */ }
+function resize() {
+  const rect = canvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  field.w = rect.width; field.h = rect.height;
+  canvas.width = Math.max(1, Math.round(rect.width * dpr));
+  canvas.height = Math.max(1, Math.round(rect.height * dpr));
+  ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cols = Math.max(64, Math.min(160, Math.round(rect.width / 24)));
+  if (cols !== field.cols) { field.cols = cols; field.target = new Float32Array(cols); field.shown = new Float32Array(cols); }
+  wake();
+}
+function still() { return lowMotion || reactivity === "calm"; }
+function audioLive(now) { return !still() && now - field.lastAudioAt < AUDIO_HOLD_MS; }
+function columnBand(i, cols) { const half = (cols - 1) / 2; return Math.min(BANDS - 1, Math.round((Math.abs(i - half) / half) * (BANDS - 1))); }
+function idleTarget(i, cols, t) {
+  const base = reactivity === "audio and vitals" && !still() ? 0.1 + 0.3 * field.cpu : 0.16;
+  const x = i / cols;
+  const a = 0.5 + 0.5 * Math.sin(x * 9.5 + t * 0.00045);
+  const b = 0.5 + 0.5 * Math.sin(x * 3.1 - t * 0.00028);
+  return base + 0.14 * a * (0.5 + 0.5 * b);
+}
+function step(now) {
+  const { cols, target, shown, bands } = field;
+  const live = audioLive(now);
+  for (let i = 0; i < cols; i++) {
+    if (live) {
+      const b0 = columnBand(i, cols), b1 = columnBand(Math.min(i + 1, cols - 1), cols);
+      const lo = Math.min(b0, b1), hi = Math.max(b0, b1);
+      let sum = 0; for (let k = lo; k <= hi; k++) sum += bands[k];
+      target[i] = 0.06 + 0.9 * (sum / (hi - lo + 1));
+    } else target[i] = idleTarget(i, cols, now);
+    const cur = shown[i];
+    const rate = live ? (target[i] > cur ? 0.5 : 0.14) : 0.06;
+    shown[i] = cur + (target[i] - cur) * rate;
+  }
+  field.torch.a += ((field.torch.on ? 1 : 0) - field.torch.a) * 0.12;
+  field.halo.a = field.halo.x < 0 ? 0 : 0.14 + 0.06 * Math.sin(now * 0.0018);
+}
+function columnIndex(i, cols, layer) { return (i + layer.shift) % cols; }
+function glow(x, radius, alpha) {
+  const { h, accent } = field;
+  const grad = ctx2d.createRadialGradient(x, h, 0, x, h, radius);
+  grad.addColorStop(0, rgba(accent, alpha)); grad.addColorStop(0.5, rgba(accent, alpha * 0.35)); grad.addColorStop(1, rgba(accent, 0));
+  ctx2d.fillStyle = grad; ctx2d.fillRect(x - radius, 0, radius * 2, h);
+}
+function draw() {
+  const { w, h, cols, shown, colors } = field;
+  ctx2d.clearRect(0, 0, w, h);
+  ctx2d.globalCompositeOperation = "lighter";
+  const dx = w / (cols - 1);
+  for (let k = 0; k < LAYERS.length; k++) {
+    const layer = LAYERS[k], color = colors[k] || field.accent;
+    const grad = ctx2d.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, rgba(color, 0.42)); grad.addColorStop(0.55, rgba(color, 0.16)); grad.addColorStop(1, rgba(color, 0.02));
+    ctx2d.fillStyle = grad; ctx2d.beginPath(); ctx2d.moveTo(0, h);
+    let prevX = 0, prevY = h - shown[columnIndex(0, cols, layer)] * layer.scale * h * 0.96;
+    ctx2d.lineTo(prevX, prevY);
+    for (let i = 1; i < cols; i++) {
+      const x = i * dx, y = h - shown[columnIndex(i, cols, layer)] * layer.scale * h * 0.96;
+      ctx2d.quadraticCurveTo(prevX, prevY, (prevX + x) / 2, (prevY + y) / 2);
+      prevX = x; prevY = y;
     }
-    return () => {};
+    ctx2d.lineTo(w, prevY); ctx2d.lineTo(w, h); ctx2d.closePath(); ctx2d.fill();
   }
+  if (field.torch.a > 0.01) glow(field.torch.x, h * 2.2, 0.34 * field.torch.a);
+  if (field.halo.a > 0.01) glow(field.halo.x, h * 1.6, field.halo.a);
+  ctx2d.globalCompositeOperation = "source-over";
+}
+function frame(now) {
+  field.raf = 0;
+  if (field.w === 0) return;
+  if (still()) { stillFrame(); return; }
+  const live = audioLive(now), interval = live ? 33 : 50;
+  if (now - field.lastDrawAt >= interval - 1) { field.lastDrawAt = now; step(now); draw(); }
+  field.raf = requestAnimationFrame(frame);
+}
+function stillFrame() {
+  const { cols, shown } = field;
+  for (let i = 0; i < cols; i++) shown[i] = idleTarget(i, cols, 0);
+  field.torch.a = 0; field.halo.a = 0; draw();
+}
+function wake() { if (field.raf) return; field.raf = requestAnimationFrame(frame); }
+function onSpectrum({ bins }) {
+  if (still()) return;
+  let any = false; const n = Math.min(BANDS, bins.length);
+  for (let i = 0; i < n; i++) { const v = bins[i]; field.bands[i] = v; if (v > 0.004) any = true; }
+  if (any) field.lastAudioAt = performance.now();
+}
+function onStripMove(e) { if (!still()) { field.torch.x = e.clientX; field.torch.on = true; wake(); } }
+function onStripLeave() { field.torch.on = false; wake(); }
+function updateHalo() {
+  const focused = store.entries.peek().find((e) => e.wins.some((w) => w.focused));
+  const el = focused ? apps.appFor(focused.key) : null;
+  if (!el || el.hasAttribute("leaving")) { field.halo.x = -1; return; }
+  const r = el.getBoundingClientRect(), left = canvas.getBoundingClientRect().left;
+  field.halo.x = r.left + r.width / 2 - left; wake();
+}
 
-  const SVG = {
-    logo: '<svg viewBox="0 0 24 24" fill="none"><path d="M12 2 3 7v10l9 5 9-5V7l-9-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m12 6-5 3 5 3 5-3-5-3Z" fill="currentColor"/></svg>',
-    grid: '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
-    rocket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5 15c-1 1-1 4-1 4s3 0 4-1M14.5 5.5c3 3 3 7 1 9l-5 .5L9 10c2-2 6-2 5.5-4.5Z"/><circle cx="14.5" cy="9.5" r="1.2" fill="currentColor"/></svg>',
-    sparkle: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.7L19.5 9l-5.7 1.8L12 16l-1.8-5.2L4.5 9l5.7-1.3L12 2Z"/></svg>',
-    play: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7L8 5Z"/></svg>',
-    note: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 18V6l10-2v12" stroke="currentColor" stroke-width="1.6" fill="none"/><circle cx="7" cy="18" r="2.4"/><circle cx="17" cy="16" r="2.4"/></svg>',
+// ---- clock (five faces) ---------------------------------------------------
+
+const FACES = ["stacked", "digital", "analog", "worded", "dual"];
+const WORDS = ["twelve", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"];
+const NEAR = { 0: "o'clock", 15: "quarter past", 30: "half past", 45: "quarter to" };
+const time = signal("");
+const date = signal("");
+let lastEpoch = Date.now();
+
+const pad = (n) => String(n).padStart(2, "0");
+function face() { return faceOverride || clockFaceName; }
+function hhmm(d, secs) {
+  const opts = { hour: format24 ? "2-digit" : "numeric", minute: "2-digit", hour12: !format24 };
+  if (secs) opts.second = "2-digit";
+  return d.toLocaleTimeString([], opts);
+}
+function dateStr(d) { return d.toLocaleDateString([], { weekday: "short", day: "numeric", month: "short" }); }
+function worded(d) {
+  const m = d.getMinutes(), h = d.getHours();
+  const near = [0, 15, 30, 45].reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a), 0);
+  if (near === 45) return `${NEAR[45]} ${WORDS[(h + 1) % 12]}`;
+  if (near === 0) return `${WORDS[h % 12]} ${NEAR[0]}`;
+  return `${NEAR[near]} ${WORDS[h % 12]}`;
+}
+function tzTime(d, tz) {
+  try { return new Intl.DateTimeFormat([], { hour: "2-digit", minute: "2-digit", hour12: !format24, timeZone: tz }).format(d); }
+  catch { return "—"; }
+}
+function drawAnalog(d) {
+  const cv = clockFace, x = cv.width / 2, y = cv.height / 2, r = x - 8, g = cv.getContext("2d");
+  g.clearRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = token("--dd-text-muted", "#94a3b8"); g.globalAlpha = 0.5; g.lineWidth = 3;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke(); g.globalAlpha = 1;
+  const hand = (frac, len, w, col) => {
+    const a = frac * Math.PI * 2 - Math.PI / 2;
+    g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round";
+    g.beginPath(); g.moveTo(x, y); g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
   };
+  const s = d.getSeconds(), m = d.getMinutes(), h = d.getHours() % 12;
+  hand((h + m / 60) / 12, r * 0.5, 5, token("--dd-text", "#e7edf5"));
+  hand((m + s / 60) / 60, r * 0.78, 3.5, token("--dd-text", "#e7edf5"));
+  hand(s / 60, r * 0.85, 1.6, token("--dd-accent", "#7dd3fc"));
+}
+function renderClock() {
+  const d = new Date(lastEpoch), f = face();
+  clockEl.dataset.face = f;
+  const analog = f === "analog";
+  clockFace.hidden = !analog;
+  clockEl.querySelector(".clock__text").hidden = analog;
+  if (analog) { drawAnalog(d); return; }
+  if (f === "worded") { time.value = worded(d); date.value = clockDate ? dateStr(d) : ""; return; }
+  time.value = hhmm(d, clockSeconds);
+  if (f === "dual") { const tz = secondaryTz.trim(); date.value = tz ? "· " + tzTime(d, tz) : "set a time zone"; }
+  else date.value = clockDate ? dateStr(d) : "";
+}
+function onTick({ epochMs }) { lastEpoch = epochMs; renderClock(); }
+clockEl.addEventListener("click", () => {
+  const cur = face();
+  faceOverride = FACES[(FACES.indexOf(cur) + 1) % FACES.length];
+  renderClock();
+});
 
-  /* ------------------------------------------------------------------ state */
-  let ctx = null;
-  let S = {}; // live settings
-  let edge = "bottom";
-  const els = {
-    dock: $("#dock"), start: $("#start"), startIco: $("#start-ico"), startLabel: $("#start-label"),
-    hostStart: $("#host-start"),
-    media: $("#media"), mediaSep: $("#media-sep"), mediaArt: $("#media-art"),
-    mediaTitle: $("#media-title"), mediaArtist: $("#media-artist"), mediaEq: $("#media-eq"),
-    stats: $("#stats"), statNet: $("#stat-net"),
-    cpuV: $("#cpu-v"), ramV: $("#ram-v"), gpuV: $("#gpu-v"), netV: $("#net-v"),
-    clock: $("#clock"), clockMain: $("#clock-main"), clockSub: $("#clock-sub"),
-    clockCanvas: $("#clock-canvas"), rail: $("#badge-rail"),
-    caret: $(".caret"), trayBadge: $("#tray-badge"),
-  };
+// ---- now playing ----------------------------------------------------------
 
-  /* ============================================================== CLOCK ==== */
-  const FACES = ["stacked", "digital", "analog", "worded", "dual"];
-  let faceOverride = null; // set by clicking the clock; null = follow setting
-  const WORDS = ["twelve","one","two","three","four","five","six","seven","eight","nine","ten","eleven"];
-  const MINS = {0:"o'clock",15:"quarter past",30:"half past",45:"quarter to"};
+const np = signal(null);
 
-  function currentFace() { return faceOverride || S.clockFace || "stacked"; }
+// ---- vitals as numbers ----------------------------------------------------
 
-  function pad(n) { return String(n).padStart(2, "0"); }
+const vitals = signal(null);
+function pctOf(key) {
+  const v = vitals.value; if (!v) return null;
+  if (key === "ram") return v.ram ? v.ram.percent * 100 : null;      // ram.percent is 0..1
+  return typeof v[key] === "number" ? v[key] * 100 : null;            // cpu/gpu are 0..1
+}
+function level(p) { return p == null ? null : p >= 85 ? "danger" : p >= 60 ? "warning" : null; }
+function numText(key) { const p = pctOf(key); return p == null ? "–" : Math.round(p) + "%"; }
+function bps(n) {
+  if (n == null) return "–";
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + "M";
+  if (n >= 1e3) return Math.round(n / 1e3) + "K";
+  return Math.round(n) + "B";
+}
+function onVitals(v) {
+  vitals.value = v;
+  field.cpu = typeof v.cpu === "number" ? Math.max(0, Math.min(1, v.cpu)) : 0;
+}
 
-  function hhmm(d, withSecs) {
-    const h24 = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
-    if (S.clock24h) return pad(h24) + ":" + pad(m) + (withSecs ? ":" + pad(s) : "");
-    const ap = h24 < 12 ? "AM" : "PM";
-    const h = ((h24 + 11) % 12) + 1;
-    return h + ":" + pad(m) + (withSecs ? ":" + pad(s) : "") + " " + ap;
+// ---- notification badges (floated over the app strip) ---------------------
+
+const UNREAD = /(?:^|\s)\((\d+)\+?\)|\b(\d+)\s+(?:new|unread|message)/i;
+function unreadOf(win) {
+  const title = (win.title || win.name || win.caption || "").toString();
+  const m = title.match(UNREAD);
+  if (!m) return 0;
+  return parseInt(m[1] || m[2], 10) || 0;
+}
+function refreshBadges() {
+  if (!badgesEl) return;
+  if (!badgesOn || !store) { badgesEl.replaceChildren(); return; }
+  const entries = store.entries.peek();
+  const glassLeft = canvas.getBoundingClientRect().left;
+  const glassTop = canvas.getBoundingClientRect().top;
+  const wanted = new Map();
+  for (const e of entries) {
+    let count = 0;
+    for (const w of e.wins || []) count = Math.max(count, unreadOf(w));
+    if (!count) continue;
+    const el = apps.appFor && apps.appFor(e.key);
+    if (!el) continue;
+    const r = el.getBoundingClientRect();
+    wanted.set(e.key, { count, x: r.left + r.width - glassLeft, y: r.top - glassTop });
   }
-
-  function fmtDate(d) {
-    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    const mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const D = d.getDate(), M = d.getMonth(), Y = d.getFullYear();
-    switch (S.dateFormat) {
-      case "d mmm yyyy": return `${D} ${mon[M]} ${Y}`;
-      case "dd/mm": return `${pad(D)}/${pad(M + 1)}`;
-      case "mm/dd": return `${pad(M + 1)}/${pad(D)}`;
-      case "iso": return `${Y}-${pad(M + 1)}-${pad(D)}`;
-      default: return `${days[d.getDay()]} ${D} ${mon[M]}`;
+  // Reconcile: reuse nodes by key so counts animate rather than flash.
+  const keep = new Set();
+  for (const [key, b] of wanted) {
+    keep.add(key);
+    let node = badgesEl.querySelector(`[data-key="${CSS.escape(key)}"]`);
+    if (!node) {
+      node = document.createElement("span");
+      node.className = "badge"; node.dataset.key = key;
+      badgesEl.appendChild(node);
     }
-  }
-
-  function worded(d) {
-    const m = d.getMinutes(), h = d.getHours();
-    const near = [0, 15, 30, 45].reduce((a, b) => Math.abs(b - m) < Math.abs(a - m) ? b : a, 0);
-    // "quarter to" / "quarter past" reference the coming / current hour.
-    if (near === 45) return `${MINS[45]} ${WORDS[(h + 1) % 12]}`;
-    if (near === 0) return `${WORDS[h % 12]} ${MINS[0]}`;
-    return `${MINS[near]} ${WORDS[h % 12]}`;
-  }
-
-  function tzTime(d, tz) {
-    try {
-      return new Intl.DateTimeFormat([], {
-        hour: "2-digit", minute: "2-digit", hour12: !S.clock24h, timeZone: tz,
-      }).format(d);
-    } catch { return "—"; }
-  }
-
-  function drawAnalog(d) {
-    const cv = els.clockCanvas, x = cv.width / 2, y = cv.height / 2, r = x - 6;
-    const g = cv.getContext("2d");
-    const accent = tok("--dd-accent", "#7dd3fc");
-    const faint = tok("--dd-text-muted", "#94a3b8");
-    g.clearRect(0, 0, cv.width, cv.height);
-    g.strokeStyle = faint; g.globalAlpha = 0.5; g.lineWidth = 3;
-    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.stroke();
-    g.globalAlpha = 1;
-    const hand = (frac, len, w, col) => {
-      const a = frac * Math.PI * 2 - Math.PI / 2;
-      g.strokeStyle = col; g.lineWidth = w; g.lineCap = "round";
-      g.beginPath(); g.moveTo(x, y);
-      g.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len); g.stroke();
-    };
-    const s = d.getSeconds(), m = d.getMinutes(), h = d.getHours() % 12;
-    hand((h + m / 60) / 12, r * 0.5, 5, tok("--dd-text", "#e7edf5"));
-    hand((m + s / 60) / 60, r * 0.78, 3.5, tok("--dd-text", "#e7edf5"));
-    hand(s / 60, r * 0.85, 1.6, accent);
-  }
-
-  function tickClock() {
-    const d = new Date();
-    const face = currentFace();
-    const analog = face === "analog";
-    els.clockCanvas.hidden = !analog;
-    els.clock.querySelector(".clock-text").hidden = analog;
-    els.clock.dataset.face = face;
-
-    if (analog) { drawAnalog(d); return; }
-    if (face === "worded") {
-      els.clockMain.textContent = worded(d);
-      els.clockSub.textContent = S.clockDate ? fmtDate(d) : "";
-      return;
+    if (node.textContent !== String(b.count)) {
+      node.textContent = b.count > 99 ? "99+" : b.count;
+      node.classList.remove("pop"); void node.offsetWidth; node.classList.add("pop");
     }
-    const main = hhmm(d, S.clockSeconds);
-    els.clockMain.textContent = main;
-    if (face === "dual") {
-      const tz = (S.secondaryTz || "").trim();
-      els.clockSub.textContent = tz ? "· " + tzTime(d, tz) : "set a time zone";
-    } else if (face === "digital") {
-      els.clockSub.textContent = S.clockDate ? fmtDate(d) : "";
-    } else { // stacked
-      els.clockSub.textContent = S.clockDate ? fmtDate(d) : "";
-    }
+    node.style.transform = `translate(${b.x - 8}px, ${b.y - 2}px)`;
+  }
+  for (const node of [...badgesEl.children]) if (!keep.has(node.dataset.key)) node.remove();
+}
+
+// ---- dock magnification ---------------------------------------------------
+
+let magHosts = [];
+function refreshMagHosts() {
+  magHosts = [startEl, launcherEl, document.getElementById("deck")]
+    .filter((el) => el && !el.hidden)
+    .concat(Array.from(apps.querySelectorAll("dd-app")));
+}
+function magnify(px) {
+  if (!magnifyOn) return resetMag();
+  const reach = Math.max(1, magReach);
+  for (const el of magHosts) {
+    const r = el.getBoundingClientRect();
+    if (!r.width) continue;
+    const c = r.left + r.width / 2;
+    const sigma = r.width * reach;
+    const d = px - c;
+    const g = Math.exp(-(d * d) / (2 * sigma * sigma));
+    el.style.setProperty("--mag-scale", (1 + magStrength * g).toFixed(3));
+    el.style.setProperty("--mag-lift", (magStrength * g * 14).toFixed(1) + "px");
+  }
+}
+function resetMag() {
+  for (const el of magHosts) { el.style.removeProperty("--mag-scale"); el.style.removeProperty("--mag-lift"); }
+}
+
+// ---- breathing pulse ------------------------------------------------------
+
+let breatheTimer = null;
+function scheduleBreathe() {
+  if (breatheTimer) { clearInterval(breatheTimer); breatheTimer = null; }
+  if (!breatheOn || !breatheSecs || lowMotion) return;
+  breatheTimer = setInterval(runBreathe, breatheSecs * 1000);
+}
+function runBreathe() {
+  if (document.hidden) return;
+  refreshMagHosts();
+  magHosts.forEach((el, i) => el.style.setProperty("--breathe-delay", i * 70 + "ms"));
+  document.body.classList.remove("breathe"); void strip.offsetWidth;
+  document.body.classList.add("breathe");
+  setTimeout(() => document.body.classList.remove("breathe"), 2600);
+}
+
+// ---- boot -----------------------------------------------------------------
+
+async function main() {
+  store = dd.bar.store();
+  await store.ready;
+  lowMotion = store.lowMotion.peek();
+  if (lowMotion) document.body.classList.add("low-motion");
+
+  // Clock readouts.
+  bindParts(clockEl, { time: { textContent: time }, date: { textContent: date } });
+  dd.time.onTick(onTick);
+  onTick({ epochMs: Date.now() });
+
+  // Now playing.
+  const artEl = npEl.querySelector('[data-bind="art"]');
+  bindParts(npEl, {
+    fallback: { hidden: () => Boolean(np.value && np.value.art) },
+    title: { textContent: () => (np.value && np.value.title) || "" },
+    artist: { textContent: () => (np.value && (np.value.artist || np.value.album)) || "" },
+  });
+  effect(() => {
+    const art = np.value && np.value.art;
+    if (art) { if (artEl.getAttribute("src") !== art) artEl.src = art; artEl.hidden = false; }
+    else { artEl.removeAttribute("src"); artEl.hidden = true; }
+  });
+  effect(() => {
+    const s = np.value;
+    document.body.classList.toggle("np-active", Boolean(s && s.hasSession));
+    document.body.classList.toggle("np-playing", Boolean(s && s.status === "playing"));
+  });
+  dd.media.onNowPlaying((s) => { np.value = s; });
+  dd.media.status().then((seed) => { if (np.peek() === null && seed) np.value = seed; })
+    .catch((err) => dd.log("warn", "media seed failed", String(err)));
+
+  // Vitals numbers.
+  bindParts(vitalsEl, {
+    cpu: { textContent: () => numText("cpu") },
+    ram: { textContent: () => numText("ram") },
+    gpu: { textContent: () => numText("gpu") },
+    net: { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.rxBps) : "–") },
+    "v-cpu": { "data-level": () => level(pctOf("cpu")) },
+    "v-ram": { "data-level": () => level(pctOf("ram")) },
+    "v-gpu": { "data-level": () => level(pctOf("gpu")), hidden: () => pctOf("gpu") == null },
+  });
+  vitalsEl.addEventListener("click", () => document.getElementById("deck").click());
+  dd.system.onVitals(onVitals);
+  dd.system.status().then((seed) => { if (seed) onVitals(seed); })
+    .catch((err) => dd.log("warn", "vitals seed failed", String(err)));
+
+  // The field.
+  readPalette();
+  dd.theme.onChange(() => { readPalette(); renderClock(); wake(); });
+  new ResizeObserver(resize).observe(canvas);
+  resize();
+  dd.audio.onSpectrum(onSpectrum);
+  if (!lowMotion) {
+    strip.addEventListener("pointermove", onStripMove);
+    strip.addEventListener("pointerleave", onStripLeave);
   }
 
-  els.clock.addEventListener("click", () => {
-    // Cycle faces live (ephemeral; the saved default still wins on reload).
-    const list = FACES;
-    const cur = currentFace();
-    faceOverride = list[(list.indexOf(cur) + 1) % list.length];
-    tickClock();
+  // Magnification + halo + badges all key off the pointer and the entries.
+  strip.addEventListener("pointermove", (e) => magnify(e.clientX));
+  strip.addEventListener("pointerleave", resetMag);
+  apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); });
+  effect(() => {
+    store.entries.value; // tracked
+    requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); });
   });
 
-  /* ============================================================= VITALS ==== */
-  let netHist = []; // rolling for the tooltip; the pane keeps its own history
-  function loadClass(p) { return p == null ? "" : p >= 90 ? "hot" : p >= 70 ? "warm" : ""; }
+  dd.settings.bind((s) => {
+    reactivity = String(s.reactivity || "audio and vitals");
+    format24 = s.format24h === true;
+    clockFaceName = String(s.clockFace || "stacked");
+    clockSeconds = s.clockSeconds === true;
+    clockDate = s.clockDate !== false;
+    secondaryTz = String(s.secondaryTz || "");
+    magnifyOn = s.magnify !== false;
+    magStrength = Math.max(0, Math.min(1, (s.magnifyStrength ?? 60) / 100));
+    magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 3));
+    breatheOn = s.breathing !== false;
+    breatheSecs = s.breathingInterval ?? 45;
+    badgesOn = s.badges !== false;
+    if (s.startLabel != null) startEl.setAttribute("label", s.startLabel || "Start");
+    launcherEl.hidden = s.showLauncher === false;
 
-  function applyStat(node, valNode, p, text) {
-    valNode.textContent = text != null ? text : (p == null ? "–" : p + "%");
-    node.classList.remove("hot", "warm");
-    const c = loadClass(p); if (c) node.classList.add(c);
-    node.style.setProperty("--fill", (p == null ? 0 : p) + "%");
-  }
+    document.body.classList.toggle("show-clock", s.showClock !== false);
+    document.body.classList.toggle("show-media", s.showMedia !== false);
+    document.body.classList.toggle("show-vitals", s.showVitals !== false);
+    document.body.classList.toggle("show-net", s.showNet !== false);
 
-  function onVitals(v) {
-    if (!v) return;
-    applyStat($("#stat-cpu"), els.cpuV, pct(v.cpu));
-    const ramP = v.ram ? (v.ram.percent != null ? Math.round(v.ram.percent) : pct(v.ram.usedMb / v.ram.totalMb)) : null;
-    applyStat($("#stat-ram"), els.ramV, ramP);
-    applyStat($("#stat-gpu"), els.gpuV, pct(v.gpu));
-    const down = v.net ? v.net.rxBps : null;
-    applyStat(els.statNet, els.netV, null, fmtBytes(down));
-    els.statNet.title = v.net ? `↓ ${fmtBytes(v.net.rxBps)}  ↑ ${fmtBytes(v.net.txBps)}` : "Network";
-    netHist.push(v.net || { rxBps: 0, txBps: 0 }); if (netHist.length > 120) netHist.shift();
-  }
-
-  /* ============================================================== MEDIA ==== */
-  function normTrack(t) {
-    if (!t) return null;
-    const title = t.title || t.name || t.track || "";
-    const artist = Array.isArray(t.artists) ? t.artists.join(", ") : (t.artist || t.artists || t.subtitle || "");
-    const art = t.artUrl || t.art || t.thumbnail || t.image || t.cover || "";
-    const playing = t.playing != null ? t.playing : (t.isPlaying != null ? t.isPlaying : t.state === "playing");
-    if (!title && !artist && !art) return null;
-    return { title, artist, art, playing: !!playing };
-  }
-
-  function onMedia(raw) {
-    const t = normTrack(raw);
-    const show = !!t;
-    els.media.hidden = !show;
-    els.mediaSep.hidden = !show;
-    if (!show) return;
-    els.mediaTitle.textContent = t.title || "Now playing";
-    els.mediaArtist.textContent = t.artist || "";
-    els.mediaArt.style.backgroundImage = t.art ? `url("${t.art}")` : "";
-    els.mediaArt.classList.toggle("noart", !t.art);
-    if (!t.art) els.mediaArt.innerHTML = SVG.note;
-    els.media.classList.toggle("paused", !t.playing);
-    layoutDock();
-  }
-
-  /* ========================================================= BADGES/RAIL === */
-  const UNREAD = /(?:^|\s)\((\d+)\+?\)|\b(\d+)\s+(?:new|unread|message)/i;
-  function appKey(w) { return (w.appId || w.appUserModelId || w.app || w.processName || w.owner || w.title || "").toString(); }
-  function appName(w) { return (w.appName || w.app || w.processName || "").toString() || (w.title || "").split(/[-–|]/)[0].trim(); }
-
-  function onWindows(list) {
-    if (!S.badges) { els.rail.innerHTML = ""; return; }
-    const wins = Array.isArray(list) ? list : (list && list.windows) || [];
-    const byApp = new Map();
-    for (const w of wins) {
-      const title = (w.title || w.name || "").toString();
-      const mm = title.match(UNREAD);
-      if (!mm) continue;
-      const count = parseInt(mm[1] || mm[2], 10);
-      if (!count) continue;
-      const key = appKey(w);
-      const prev = byApp.get(key);
-      if (!prev || count > prev.count) byApp.set(key, { key, count, name: appName(w), icon: w.iconUrl || w.icon || "" });
-    }
-    renderRail([...byApp.values()].sort((a, b) => b.count - a.count).slice(0, 6));
-  }
-
-  function renderRail(items) {
-    els.rail.innerHTML = "";
-    for (const it of items) {
-      const chip = document.createElement("button");
-      chip.className = "badge-chip dock-item";
-      chip.type = "button";
-      chip.title = `${it.name} — ${it.count} unread`;
-      chip.innerHTML = it.icon
-        ? `<span class="badge-ico" style="background-image:url('${it.icon}')"></span>`
-        : `<span class="badge-ico letter">${(it.name[0] || "?").toUpperCase()}</span>`;
-      const n = document.createElement("span");
-      n.className = "badge-count pop";
-      n.textContent = it.count > 99 ? "99+" : it.count;
-      chip.appendChild(n);
-      chip.addEventListener("animationend", () => n.classList.remove("pop"), { once: true });
-      chip.addEventListener("click", () => focusApp(it.key));
-      els.rail.appendChild(chip);
-    }
-  }
-
-  function focusApp(key) {
-    // Best-effort focus/preview across possible host verbs.
-    try { if (dd.bar && dd.bar.flyout) return void dd.bar.flyout(key); } catch {}
-    try { if (dd.windows && dd.windows.focus) return void dd.windows.focus(key); } catch {}
-    try { dd.request && dd.request("windows.focus", { app: key }); } catch {}
-  }
-
-  function onSystray(state) {
-    const count = state && (state.count != null ? state.count : state.badge) || 0;
-    els.caret.hidden = !(state && (state.count || state.items || state.hasItems));
-    els.trayBadge.hidden = !count;
-    if (count) els.trayBadge.textContent = count > 99 ? "99+" : count;
-  }
-
-  /* =========================================================== START BTN === */
-  function applyStart() {
-    els.startLabel.textContent = S.startLabel || "Start";
-    els.startLabel.hidden = !(S.startLabel && S.startLabel.trim());
-    els.startIco.innerHTML = SVG[S.startIcon] || SVG.logo;
-    els.start.dataset.mode = S.startMode || "windows";
-  }
-
-  els.start.addEventListener("click", () => {
-    const mode = S.startMode || "windows";
-    if (mode === "link") {
-      const url = (S.startUrl || "").trim();
-      if (url) openTarget(url);
-      return;
-    }
-    if (mode === "launcher") { openPane("launcher", els.start); return; }
-    // windows: delegate to the host's real Start menu button.
-    try { els.hostStart.click(); return; } catch {}
-    try { dd.request && dd.request("shell.start"); } catch {}
-  });
-
-  function openTarget(target) {
-    // A URL goes through dd.links; anything else is handed to the host to run.
-    if (/^https?:\/\//i.test(target)) {
-      try { return void dd.links.open(target); } catch {}
-    }
-    try { dd.request && dd.request("shell.run", { target }); } catch {}
-  }
-
-  /* =============================================================== PANES ==== */
-  function openPane(pane, anchor) {
-    const sizes = {
-      nowplaying: { w: 460, h: 340 },
-      network: { w: 460, h: 300 },
-      system: { w: 380, h: 300 },
-      launcher: { w: 520, h: 360 },
-    };
-    const size = sizes[pane] || { w: 400, h: 300 };
-    try {
-      dd.popout.open({ size, anchor, prefer: edge === "top" ? "down" : "up", data: { pane } });
-    } catch (e) { dd.log && dd.log("warn", "popout.open failed", e); }
-  }
-
-  els.media.addEventListener("click", () => openPane("nowplaying", els.media));
-  els.statNet.addEventListener("click", () => openPane("network", els.statNet));
-  ["cpu", "ram", "gpu"].forEach((k) =>
-    $("#stat-" + k).addEventListener("click", () => openPane("system", $("#stat-" + k))));
-
-  /* ==================================================== DOCK MAGNIFICATION == */
-  const horizontal = () => edge === "bottom" || edge === "top";
-  let items = [];
-  function refreshItems() {
-    // Our own controls, plus any host app-strip buttons we can actually reach
-    // (light DOM only; shadow-DOM strips simply keep their native hover).
-    items = $$(".dock-item", els.dock)
-      .concat($$(".apps button, .apps [role='button'], .apps .dd-app-tile", els.dock));
-  }
-  // Keep the app-strip buttons in the magnify set as the host adds/removes them.
-  try { new MutationObserver(refreshItems).observe($(".apps"), { childList: true, subtree: true }); } catch {}
-
-  function magnify(px, py) {
-    if (!S.magnify) return reset();
-    const strength = clamp((S.magnifyStrength ?? 55) / 100, 0, 1);
-    const reach = clamp(S.magnifyReach ?? 3, 1, 6);
-    for (const it of items) {
-      const r = it.getBoundingClientRect();
-      const c = horizontal() ? r.left + r.width / 2 : r.top + r.height / 2;
-      const p = horizontal() ? px : py;
-      const sigma = (horizontal() ? r.width : r.height) * reach || 60;
-      const d = p - c;
-      const g = Math.exp(-(d * d) / (2 * sigma * sigma)); // 1 at cursor → 0 far away
-      const s = 1 + strength * g;
-      const lift = strength * g * 16;
-      it.style.setProperty("--s", s.toFixed(3));
-      it.style.setProperty("--lift", lift.toFixed(1) + "px");
-    }
-  }
-  function reset() {
-    for (const it of items) { it.style.setProperty("--s", "1"); it.style.setProperty("--lift", "0px"); }
-  }
-  els.dock.addEventListener("pointermove", (e) => magnify(e.clientX, e.clientY));
-  els.dock.addEventListener("pointerleave", reset);
-
-  /* ======================================================== BREATHE PULSE == */
-  let breatheTimer = null;
-  function scheduleBreathe() {
-    if (breatheTimer) { clearInterval(breatheTimer); breatheTimer = null; }
-    const secs = S.breathingInterval ?? 45;
-    if (!S.breathing || !secs) return;
-    breatheTimer = setInterval(runBreathe, secs * 1000);
-  }
-  function runBreathe() {
-    if (document.hidden) return;
-    refreshItems();
-    items.forEach((it, i) => it.style.setProperty("--bd", (i * 70) + "ms"));
-    els.dock.classList.remove("breathe");
-    void els.dock.offsetWidth; // restart the animation
-    els.dock.classList.add("breathe");
-    setTimeout(() => els.dock.classList.remove("breathe"), 2600);
-  }
-
-  /* ============================================================= LAYOUT ==== */
-  function layoutDock() {
-    document.body.dataset.edge = edge;
-    // The stats separator only makes sense if a stat / media element is visible.
-    const anyStat = S.showCpu || S.showRam || S.showGpu || S.showNet;
-    $("#stats-sep").hidden = !anyStat && els.media.hidden;
-    refreshItems();
-  }
-
-  function applySettings(next) {
-    S = Object.assign({}, S, next || {});
-    applyStart();
-    $("#stat-cpu").hidden = !S.showCpu;
-    $("#stat-ram").hidden = !S.showRam;
-    $("#stat-gpu").hidden = !S.showGpu;
-    els.statNet.hidden = !S.showNet;
-    if (!S.badges) els.rail.innerHTML = "";
+    document.body.classList.toggle("no-magnify", !magnifyOn);
+    if (!magnifyOn) resetMag();
+    refreshMagHosts();
     scheduleBreathe();
-    tickClock();
-    layoutDock();
-  }
+    renderClock();
+    refreshBadges();
+    wake();
+  });
 
-  /* ============================================================== TOKENS === */
-  function tok(name, fallback) {
-    try { if (dd.ui && dd.ui.token) return dd.ui.token(name, fallback); } catch {}
-    const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-    return v || fallback;
-  }
+  refreshMagHosts();
+}
 
-  /* =============================================================== BOOT ==== */
-  async function boot() {
-    ctx = await dd.ready;
-    edge = (ctx && ctx.bar && ctx.bar.edge) || "bottom";
-    document.body.dataset.edge = edge;
-
-    // Follow live edge changes if the store exposes them.
-    try {
-      const store = dd.bar.store();
-      if (store && typeof store.subscribe === "function") {
-        store.subscribe((s) => { if (s && s.edge && s.edge !== edge) { edge = s.edge; layoutDock(); } });
-      }
-    } catch {}
-
-    // Settings: bind fires immediately then on every change (and live-preview).
-    subscribe([
-      (cb) => dd.settings.bind(cb),
-      (cb) => { cb(dd.settings.get()); return dd.settings.onChange(cb); },
-    ], applySettings);
-
-    // Vitals — 1 Hz.
-    try { const snap = dd.system.status && dd.system.status(); if (snap) onVitals(snap); } catch {}
-    subscribe([
-      (cb) => dd.system.onVitals(cb),
-      (cb) => dd.system.vitals.subscribe(cb),
-    ], onVitals);
-
-    // Now playing.
-    subscribe([
-      (cb) => dd.media.onNowPlaying(cb),
-      (cb) => (typeof dd.media.nowPlaying === "function" ? dd.media.nowPlaying(cb) : undefined),
-      (cb) => dd.media.nowPlaying.subscribe(cb),
-      (cb) => dd.media.onChange(cb),
-    ], onMedia);
-
-    // Open windows → notification badges.
-    subscribe([
-      (cb) => dd.windows.onChanged(cb),
-      (cb) => dd.windows.subscribe(cb),
-    ], onWindows);
-
-    // System tray count.
-    subscribe([
-      (cb) => dd.systray.subscribe(cb),
-      (cb) => dd.systray.onChange(cb),
-      (cb) => (typeof dd.systray === "function" ? dd.systray(cb) : undefined),
-    ], onSystray);
-
-    // Repaint the analog clock / re-read tokens on theme change.
-    try { dd.theme.onChange(() => tickClock()); } catch {}
-
-    refreshItems();
-    tickClock();
-    setInterval(tickClock, 1000);
-    // Test hook: window.__auroraBadge("Telegram", 5) to preview the rail.
-    window.__auroraBadge = (name, n) => renderRail([{ key: name, name, count: n, icon: "" }]);
-  }
-
-  if (window.dd && dd.ready) boot();
-  else window.addEventListener("DOMContentLoaded", () => window.dd && dd.ready && boot());
-})();
+main().catch((err) => dd.log("error", "aurora dock boot failed", String(err)));
