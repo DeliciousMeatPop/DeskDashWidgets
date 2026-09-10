@@ -113,6 +113,34 @@ body.breathing .start__label { animation: pg-word 2s var(--dd-ease); }
 .ico-power { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.9a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.9a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E"); }
 
+/* ---- power group: the button + its inline action strip ----------------- */
+.power-wrap { display: inline-flex; align-items: stretch; }
+.power-wrap[hidden] { display: none; }
+.powerstrip { display: inline-flex; align-items: stretch; gap: 2px; overflow: hidden;
+  max-width: 0; opacity: 0; transition: max-width 180ms var(--spring), opacity 140ms var(--dd-ease); }
+.powerstrip[hidden] { display: none; }
+.power-wrap.open .powerstrip { max-width: 360px; opacity: 1; }
+.power-wrap.open > #power { color: var(--dd-accent); }
+/* Action buttons reuse the dock-button box; shutdown warns on hover. */
+.pw-btn { position: relative; display: grid; place-items: center; background: transparent; border: 0; cursor: pointer;
+  width: var(--icon); height: calc(var(--icon) + var(--dot-lane)); padding: 0 0 var(--dot-lane); color: var(--dd-text);
+  transition: color var(--dd-anim-fast) var(--dd-ease); }
+.pw-btn:hover { color: var(--dd-accent); }
+.pw-btn[data-action="shutdown"]:hover { color: var(--dd-danger, #f87171); }
+.pw-btn[disabled] { opacity: .4; cursor: default; }
+.pw-btn__ico { width: calc(var(--icon) * 0.72); height: calc(var(--icon) * 0.72); background: currentColor;
+  -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; -webkit-mask-size: contain; mask-position: center; mask-repeat: no-repeat; mask-size: contain; }
+.pw-shutdown { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.9a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v8'/%3E%3Cpath d='M6.3 6.9a8 8 0 1 0 11.4 0'/%3E%3C/svg%3E"); }
+.pw-restart { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v4h-4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v4h-4'/%3E%3C/svg%3E"); }
+.pw-sleep { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5Z' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5Z' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.pw-lock { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7'%3E%3Crect x='5' y='10.5' width='14' height='9' rx='1.6'/%3E%3Cpath d='M8 10.5V8a4 4 0 0 1 8 0v2.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7'%3E%3Crect x='5' y='10.5' width='14' height='9' rx='1.6'/%3E%3Cpath d='M8 10.5V8a4 4 0 0 1 8 0v2.5' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.pw-signOut { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4'/%3E%3Cpath d='M9 8l-4 4 4 4'/%3E%3Cpath d='M5 12h9'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4'/%3E%3Cpath d='M9 8l-4 4 4 4'/%3E%3Cpath d='M5 12h9'/%3E%3C/svg%3E"); }
+
 /* ---- separators between groups ----------------------------------------- */
 .sep { flex: none; align-self: center; width: 1px; height: calc(var(--icon) * 0.64);
   margin: 0 var(--spacer, 8px); background: var(--dd-border); border-radius: 1px; opacity: 0.75; }

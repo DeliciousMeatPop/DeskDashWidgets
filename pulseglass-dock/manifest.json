@@ -53,8 +53,6 @@
     { "key": "powerPosition", "type": "select", "label": "Power button position",
       "options": ["in the dock", "by start", "left of info", "far right"], "default": "by start",
       "showIf": { "key": "showPower", "equals": true } },
-    { "key": "powerConfirm", "type": "boolean", "label": "Confirm shut down / restart / sign out", "default": true,
-      "showIf": { "key": "showPower", "equals": true } },
 
     { "key": "magnify", "type": "boolean", "label": "Magnification (master)", "default": true },
     { "key": "magnifyApps", "type": "boolean", "label": "· magnify app icons", "default": true, "showIf": { "key": "magnify", "equals": true } },

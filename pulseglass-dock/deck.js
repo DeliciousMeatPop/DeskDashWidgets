@@ -216,62 +216,33 @@ async function setupWeather(st) {
   } catch (e) { dd.log("warn", "weather failed", (e && e.code) || String(e)); nowEl.hidden = true; emptyEl.textContent = "Weather unavailable — check the location name."; emptyEl.hidden = false; }
 }
 
-// ---- tools / power sheets (opened by the dock's Tools or Power button) ------
-// `which` is "tools" or "power"; only that group is shown and wired.
-async function setupMenu(st, which) {
+// ---- tools sheet (opened by the dock's Tools button) -----------------------
+async function setupMenu() {
   document.body.classList.add("menu-mode");
   document.getElementById("tabs").hidden = true;
   for (const id of ["page-np", "page-sys", "page-drives", "page-net", "page-weather"]) { const el = document.getElementById(id); if (el) el.hidden = true; }
-  const menu = document.getElementById("page-menu"); menu.hidden = false;
-  const isPower = which === "power";
-  document.getElementById("grp-tools").hidden = isPower;
-  document.getElementById("grp-power").hidden = !isPower;
-  // Close only after the async action has been dispatched, so tearing down the
-  // popout doesn't cancel a launch mid-flight (this was eating Terminal).
+  document.getElementById("page-menu").hidden = false;
+  // Close only after the async launch has been dispatched, so tearing down the
+  // popout doesn't cancel it mid-flight.
   const runThenClose = (p) => Promise.resolve(p).catch(() => {}).finally(() => { try { dd.popout && dd.popout.close && dd.popout.close(); } catch {} });
 
-  if (!isPower) {
-    let apps = [];
-    try { apps = (await dd.apps.list()).apps || []; } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
-    const find = (re) => (apps.find((a) => re.test(a.name || a.id || "")) || {}).id;
-    const ids = {
-      task: find(/task ?manager/i),
-      terminal: find(/windows terminal|terminal|powershell|command prompt|\bcmd\b|\bwt\b/i),
-      settings: find(/^settings|windows settings/i),
-      control: find(/control panel/i),
-    };
-    for (const btn of document.querySelectorAll("#grp-tools .menu-item[data-app]")) {
-      const id = ids[btn.dataset.app];
-      if (!id) { btn.disabled = true; continue; }
-      btn.addEventListener("click", () => runThenClose(dd.apps.launch(id)));
-    }
-    // File Explorer → open "This PC" via ShellExecute (the host routes it),
-    // falling back to the app catalog if that fails.
-    document.getElementById("menu-explorer").addEventListener("click", () => {
-      runThenClose(dd.links.open("shell:MyComputerFolder").catch((e) => {
-        dd.log("warn", "open files via shell failed, using app", (e && e.code) || String(e));
-        const id = find(/explorer|files?\b/i); return id ? dd.apps.launch(id) : undefined;
-      }));
-    });
-    return;
+  let apps = [];
+  try { apps = (await dd.apps.list()).apps || []; } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
+  const find = (re) => (apps.find((a) => re.test(a.name || a.id || "")) || {}).id;
+  const ids = { task: find(/task ?manager/i), settings: find(/^settings|windows settings/i), control: find(/control panel/i) };
+  for (const btn of document.querySelectorAll("#grp-tools .menu-item[data-app]")) {
+    const id = ids[btn.dataset.app];
+    if (!id) { btn.disabled = true; continue; }
+    btn.addEventListener("click", () => runThenClose(dd.apps.launch(id)));
   }
-
-  // Power actions via dd.power.run(). Sleep hides when the machine can't sleep.
-  const confirmDestructive = !st || st.powerConfirm !== false;
-  let caps = null;
-  try { if (dd.power && dd.power.capabilities) caps = await dd.power.capabilities(); } catch (e) { dd.log("warn", "power caps failed", (e && e.code) || String(e)); }
-  const LABEL = { lock: "Lock", signOut: "Sign out", sleep: "Sleep", restart: "Restart", shutdown: "Shut down" };
-  const NEEDS_CONFIRM = new Set(["signOut", "restart", "shutdown"]);
-  const canPower = !!(dd.power && dd.power.run);
-  for (const btn of document.querySelectorAll("#grp-power .menu-pw[data-power]")) {
-    const action = btn.dataset.power;
-    if (action === "sleep" && caps && caps.sleep === false) { btn.hidden = true; continue; }
-    if (!canPower) { btn.disabled = true; continue; }
-    btn.addEventListener("click", () => {
-      if (confirmDestructive && NEEDS_CONFIRM.has(action) && !window.confirm(`${LABEL[action]} now?`)) return;
-      runThenClose(dd.power.run(action));
-    });
-  }
+  // File Explorer → open "This PC" via ShellExecute (the host routes it),
+  // falling back to the app catalog if that fails.
+  document.getElementById("menu-explorer").addEventListener("click", () => {
+    runThenClose(dd.links.open("shell:MyComputerFolder").catch((e) => {
+      dd.log("warn", "open files via shell failed, using app", (e && e.code) || String(e));
+      const id = find(/explorer|files?\b/i); return id ? dd.apps.launch(id) : undefined;
+    }));
+  });
 }
 
 // ---- tabs -----------------------------------------------------------------
@@ -296,12 +267,7 @@ function setupTabs(st, initialTab) {
 async function main() {
   const ctx = await dd.ready;
   const view = ctx && ctx.popout && ctx.popout.data && ctx.popout.data.view;
-  if (view === "tools" || view === "power") {
-    let st = (ctx && ctx.settings) || null;
-    if (!st) { try { st = dd.settings.get() || {}; } catch { st = {}; } }
-    await setupMenu(st, view);
-    return;
-  }
+  if (view === "tools") { await setupMenu(); return; }
   const deckSettings = (ctx && ctx.settings) || (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
   warnAt = deckSettings.vitalsWarnAt ?? 50;
   dangerAt = deckSettings.vitalsDangerAt ?? 90;

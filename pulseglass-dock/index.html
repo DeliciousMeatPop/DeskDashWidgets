@@ -100,10 +100,15 @@
       <span class="dockbtn__ico ico-tools"></span>
     </button>
 
-    <!-- Power (JS re-parents it into the chosen slot). -->
-    <button id="power" class="dockbtn dock-plain" type="button" aria-label="Power" title="Power" hidden>
-      <span class="dockbtn__ico ico-power"></span>
-    </button>
+    <!-- Power (JS re-parents the whole group into the chosen slot). The action
+         buttons live on the dock itself so dd.power.run() fires from the bar
+         document — the host refuses power calls made from a popout surface. -->
+    <span id="power-wrap" class="power-wrap" hidden>
+      <button id="power" class="dockbtn dock-plain" type="button" aria-label="Power" title="Power" aria-expanded="false">
+        <span class="dockbtn__ico ico-power"></span>
+      </button>
+      <span id="powerstrip" class="powerstrip" hidden></span>
+    </span>
 
     <!-- The clock lives here and JS re-parents it into the chosen slot. -->
     <button class="clock" id="clock" type="button" aria-label="Clock" hidden>
