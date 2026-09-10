@@ -38,8 +38,12 @@
     { "key": "startSize", "type": "number", "label": "Start size (%)", "min": 60, "max": 180, "default": 100 },
     { "key": "startPlacement", "type": "select", "label": "Start position", "options": ["left edge", "in the dock"], "default": "left edge" },
 
-    { "key": "showRecycleBin", "type": "boolean", "label": "Recycle Bin in the dock", "default": false },
-    { "key": "showDesktopBtn", "type": "boolean", "label": "Show-desktop button in the dock", "default": false },
+    { "key": "showRecycleBin", "type": "boolean", "label": "Recycle Bin", "default": false },
+    { "key": "recyclePosition", "type": "select", "label": "Recycle Bin position",
+      "options": ["in the dock", "by start", "left of info", "far right"], "default": "in the dock",
+      "showIf": { "key": "showRecycleBin", "equals": true } },
+    { "key": "desktopSrc", "type": "filePath", "label": "Desktop source (blank = Desktop icons)", "placeholder": "leave blank", "pick": "folder",
+      "showIf": { "key": "showRecycleBin", "equals": true } },
 
     { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
     { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 100 },
@@ -101,6 +105,8 @@
     "media": true,
     "mediaControls": true,
     "systemApps": true,
+    "desktop": true,
+    "folders": true,
     "storage": true,
     "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"] }
   }
