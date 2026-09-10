@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="/__sdk/dd-base.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body data-edge="bottom">
+    <!-- Centre segment: the dock itself. Only this box captures the mouse;
+         everything outside a <dd-bar> clicks through to the desktop / window beneath. -->
+    <dd-bar class="seg seg-main" place="center" reach="34">
+      <div id="dock" class="dock">
+        <!-- Editable start button. A hidden host <dd-bar-button action="start">
+             is delegated to for the real Windows Start menu. -->
+        <button class="dock-item start" id="start" type="button" data-tip="Start" aria-label="Start">
+          <span class="ico" id="start-ico"></span>
+          <span class="start-label" id="start-label">Start</span>
+        </button>
+        <dd-bar-button action="start" id="host-start" hidden></dd-bar-button>
+
+        <span class="sep"></span>
+
+        <!-- Real pinned / running apps: host draws and manages these. -->
+        <dd-apps class="apps" settings="pins" indicator="dots" sortable previews="hover"></dd-apps>
+
+        <span class="sep media-sep" id="media-sep" hidden></span>
+
+        <!-- Now-playing chip. Click opens the movable/resizable pane. -->
+        <button class="dock-item media" id="media" type="button" data-tip="Now playing" aria-label="Now playing" hidden>
+          <span class="art" id="media-art"></span>
+          <span class="media-meta">
+            <span class="media-title" id="media-title">Nothing playing</span>
+            <span class="media-sub" id="media-artist"></span>
+          </span>
+          <span class="eq" id="media-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+        </button>
+
+        <span class="sep stats-sep" id="stats-sep"></span>
+
+        <!-- Vitals as number percents (not rings). -->
+        <div class="stats" id="stats">
+          <button class="dock-item stat" data-stat="cpu" id="stat-cpu" type="button" data-tip="CPU — system panel">
+            <b class="stat-v" id="cpu-v">–</b><i class="stat-l">CPU</i>
+          </button>
+          <button class="dock-item stat" data-stat="ram" id="stat-ram" type="button" data-tip="RAM — system panel">
+            <b class="stat-v" id="ram-v">–</b><i class="stat-l">RAM</i>
+          </button>
+          <button class="dock-item stat" data-stat="gpu" id="stat-gpu" type="button" data-tip="GPU — system panel">
+            <b class="stat-v" id="gpu-v">–</b><i class="stat-l">GPU</i>
+          </button>
+          <button class="dock-item stat net" data-stat="net" id="stat-net" type="button" data-tip="Network graph">
+            <b class="stat-v" id="net-v">–</b><i class="stat-l">NET</i>
+          </button>
+        </div>
+      </div>
+    </dd-bar>
+
+    <!-- Trailing segment: notification rail, clock, system tray. -->
+    <dd-bar class="seg seg-side" place="right" reach="34">
+      <div class="tray">
+        <div id="badge-rail" class="badge-rail" aria-label="Notifications"></div>
+
+        <button class="dock-item clock" id="clock" type="button" data-tip="Click to change clock style" aria-label="Clock">
+          <span class="clock-text">
+            <span id="clock-main" class="clock-main">--:--</span>
+            <span id="clock-sub" class="clock-sub"></span>
+          </span>
+          <canvas id="clock-canvas" class="clock-canvas" width="120" height="120" hidden></canvas>
+        </button>
+
+        <span class="caret-wrap">
+          <dd-tray-caret class="caret" settings="systray" hidden></dd-tray-caret>
+          <span class="tray-badge" id="tray-badge" hidden>0</span>
+        </span>
+      </div>
+    </dd-bar>
+
+    <script src="/__sdk/widget-sdk.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

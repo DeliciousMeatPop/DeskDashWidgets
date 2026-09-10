@@ -1,0 +1,67 @@
+{
+  "$schema": "./.deskdash/manifest.schema.json",
+  "id": "aurora-dock",
+  "name": "Aurora Dock",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "minAppVersion": "0.3.5",
+  "description": "A glass dock taskbar with magnification, live number vitals, a movable now-playing panel, a network graph, editable start button and app notification badges.",
+  "author": "you",
+  "kind": "bar",
+  "bar": { "thickness": 96, "reserve": 56 },
+  "edges": ["bottom", "top", "left", "right"],
+  "popout": { "entry": "pane.html" },
+  "fonts": { "use": { "display": "audiowide" } },
+  "permissions": {
+    "taskbar": true,
+    "time": true,
+    "system": true,
+    "media": true,
+    "links": true,
+    "notifications": true
+  },
+  "settings": [
+    "accentColor",
+    "pins",
+    "systray",
+
+    { "key": "clockFace", "type": "select", "label": "Clock style",
+      "options": ["stacked", "digital", "analog", "worded", "dual"], "default": "stacked" },
+    { "key": "clock24h", "type": "boolean", "label": "24-hour time", "default": false },
+    { "key": "clockSeconds", "type": "boolean", "label": "Show seconds", "default": false },
+    { "key": "clockDate", "type": "boolean", "label": "Show date", "default": true },
+    { "key": "dateFormat", "type": "select", "label": "Date format",
+      "options": ["ddd d mmm", "d mmm yyyy", "dd/mm", "mm/dd", "iso"], "default": "ddd d mmm",
+      "showIf": { "key": "clockDate", "equals": true } },
+    { "key": "secondaryTz", "type": "text", "label": "Second time zone (IANA)",
+      "placeholder": "America/New_York", "default": "",
+      "showIf": { "key": "clockFace", "equals": "dual" } },
+
+    { "key": "startMode", "type": "select", "label": "Start button action",
+      "options": ["windows", "launcher", "link"], "default": "windows" },
+    { "key": "startLabel", "type": "text", "label": "Start button label", "placeholder": "Start", "default": "Start" },
+    { "key": "startIcon", "type": "select", "label": "Start button icon",
+      "options": ["logo", "grid", "rocket", "sparkle"], "default": "logo" },
+    { "key": "startUrl", "type": "text", "label": "Start opens (URL or app)",
+      "placeholder": "https://… or notepad.exe", "default": "",
+      "showIf": { "key": "startMode", "equals": "link" } },
+    { "key": "launcherItems", "type": "text", "label": "Launcher shortcuts  (Name|target, comma separated)",
+      "placeholder": "Search|https://google.com, Mail|https://mail.google.com",
+      "default": "Search|https://www.google.com, Mail|https://mail.google.com, Calendar|https://calendar.google.com, DeskDash|https://www.desktop-dashboard.com",
+      "showIf": { "key": "startMode", "equals": "launcher" } },
+
+    { "key": "showCpu", "type": "boolean", "label": "Show CPU %", "default": true },
+    { "key": "showRam", "type": "boolean", "label": "Show RAM %", "default": true },
+    { "key": "showGpu", "type": "boolean", "label": "Show GPU %", "default": true },
+    { "key": "showNet", "type": "boolean", "label": "Show network button", "default": true },
+
+    { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
+    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 55 },
+    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 3 },
+
+    { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
+    { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 45 },
+
+    { "key": "badges", "type": "boolean", "label": "Notification badges", "default": true }
+  ]
+}
