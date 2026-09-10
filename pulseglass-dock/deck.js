@@ -1,6 +1,6 @@
-// Aurora Dock deck — the bar's one popout, as a small control centre with
+// Pulseglass Dock deck — the bar's one popout, as a small control centre with
 // tabs: Now playing (transport + seek + volume), System (meters), Network
-// (live graph) and Apps (launcher). Media and vitals logic follows Aurora's
+// (live graph) and Apps (launcher). Media and vitals logic follows Pulseglass's
 // deck; the graph and launcher are the additions.
 
 const { create, bindParts, signal, effect } = dd.ui;
@@ -22,7 +22,7 @@ const vitals = signal(null);
 const shownSeconds = signal(0);
 let dragging = false;
 
-const warn = (what) => (err) => dd.log("warn", `aurora dock deck ${what} failed`, err && err.code ? err.code : String(err));
+const warn = (what) => (err) => dd.log("warn", `pulseglass dock deck ${what} failed`, err && err.code ? err.code : String(err));
 
 function fmt(seconds) {
   const s = Math.max(0, Math.round(seconds));
@@ -92,8 +92,8 @@ function renderChips() {
   if (v.net) c.push(`↓ ${bps(v.net.rxBps)}`, `↑ ${bps(v.net.txBps)}`);
   if (v.wifi) c.push(`📶 ${v.wifi.ssid || "Wi-Fi"}${v.wifi.signal != null ? " · " + v.wifi.signal + "%" : ""}`);
   if (v.battery) c.push(`${v.battery.charging ? "⚡ Charging" : "🔋 Battery"} ${Math.round(v.battery.percent)}%`);
-  if (v.disk != null) c.push(`Disk ${Math.round(v.disk * 100)}%`);
-  if (Array.isArray(v.drives)) for (const d of v.drives) c.push(`${d.label || d.mount || "Drive"} ${Math.round(d.percent != null ? d.percent : (d.usedMb / d.totalMb) * 100)}%`);
+  if (v.disk != null) c.push(`Disk usage ${Math.round(v.disk * 100)}%`);
+  if (Array.isArray(v.drives)) for (const d of v.drives) c.push(`${d.label || d.mount || "Drive"} ${Math.round(d.percent != null ? d.percent : (d.usedMb / d.totalMb) * 100)}% used`);
   if (v.uptimeSec != null) { const hrs = Math.floor(v.uptimeSec / 3600); c.push(`Up ${hrs >= 24 ? Math.floor(hrs / 24) + "d " + (hrs % 24) + "h" : hrs + "h"}`); }
   chipsEl.replaceChildren(...c.map((t) => { const s = document.createElement("span"); s.className = "chip"; s.textContent = t; return s; }));
 }
@@ -139,10 +139,56 @@ function setupNetGraph() {
   addEventListener("resize", draw);
 }
 
+// ---- weather --------------------------------------------------------------
+function wxEmoji(code, isDay) {
+  if (code === 0) return isDay ? "☀️" : "🌙";
+  if (code === 1 || code === 2) return isDay ? "🌤️" : "☁️";
+  if (code === 3) return "☁️";
+  if (code === 45 || code === 48) return "🌫️";
+  if (code >= 51 && code <= 57) return "🌦️";
+  if (code >= 61 && code <= 67) return "🌧️";
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "🌨️";
+  if (code >= 80 && code <= 82) return "🌧️";
+  if (code >= 95) return "⛈️";
+  return "🌡️";
+}
+function wxDescribe(code, isDay) { try { return dd.weather.describe(code, isDay).label || ""; } catch { return ""; } }
+async function setupWeather() {
+  const st = (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
+  const place = String(st.weatherPlace || "").trim();
+  const units = String(st.weatherUnits || "fahrenheit");
+  const tabBtn = document.getElementById("tab-weather");
+  const nowEl = document.getElementById("wx-now"), fcEl = document.getElementById("wx-forecast"), emptyEl = document.getElementById("wx-empty");
+  tabBtn.hidden = !place;
+  if (!place) { nowEl.hidden = true; fcEl.replaceChildren(); emptyEl.hidden = false; return; }
+  emptyEl.hidden = true;
+  try {
+    const geo = await dd.weather.geocode(place, { cacheKey: "pg" });
+    const [cur, days] = await Promise.all([
+      dd.weather.current({ lat: geo.lat, lon: geo.lon, units }),
+      dd.weather.forecast({ lat: geo.lat, lon: geo.lon, units, scale: "daily", count: 5 }),
+    ]);
+    document.getElementById("wx-glyph").textContent = wxEmoji(cur.code, cur.isDay);
+    document.getElementById("wx-temp").textContent = Math.round(cur.temperature) + "°";
+    document.getElementById("wx-desc").textContent = wxDescribe(cur.code, cur.isDay);
+    document.getElementById("wx-place").textContent = geo.label || place;
+    nowEl.hidden = false;
+    fcEl.replaceChildren(...(days || []).map((d) => {
+      const el = document.createElement("div"); el.className = "wx-day";
+      el.innerHTML = `<span class="wx-day__d"></span><span class="wx-day__g"></span><span class="wx-day__t"><b></b><i></i></span>`;
+      el.querySelector(".wx-day__d").textContent = new Date(d.time).toLocaleDateString([], { weekday: "short" });
+      el.querySelector(".wx-day__g").textContent = wxEmoji(d.code, d.isDay);
+      el.querySelector(".wx-day__t b").textContent = Math.round(d.temperature) + "°";
+      if (d.low != null) el.querySelector(".wx-day__t i").textContent = Math.round(d.low) + "°";
+      return el;
+    }));
+  } catch (e) { dd.log("warn", "weather failed", (e && e.code) || String(e)); nowEl.hidden = true; emptyEl.textContent = "Weather unavailable."; emptyEl.hidden = false; }
+}
+
 // ---- tabs -----------------------------------------------------------------
 function setupTabs() {
   const tabs = Array.from(document.querySelectorAll(".tab"));
-  const pages = { np: "page-np", sys: "page-sys", net: "page-net" };
+  const pages = { np: "page-np", sys: "page-sys", net: "page-net", weather: "page-weather" };
   let active = "np";
   try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch {}
   function show(name) {
@@ -203,7 +249,7 @@ async function main() {
 
   soundEl.append(create("dd-volume-pill"));
 
-  bindParts(systemEl, { ...meterRow("cpu"), ...meterRow("ram"), ...meterRow("gpu"), ...meterRow("disk"), ...meterRow("battery") });
+  bindParts(systemEl, { ...meterRow("cpu"), ...meterRow("ram"), ...meterRow("gpu"), ...meterRow("battery") });
   effect(renderChips);
   dd.system.onVitals((v) => { vitals.value = v; });
   const status = await dd.system.status().catch(warn("system status"));
@@ -211,6 +257,7 @@ async function main() {
 
   setupNetGraph();
   setupTabs();
+  void setupWeather();
   addEventListener("resize", updateMarquee);
 }
 

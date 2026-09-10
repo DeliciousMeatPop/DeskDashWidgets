@@ -11,6 +11,7 @@
         <button class="tab" data-tab="np" role="tab" aria-selected="true">Now playing</button>
         <button class="tab" data-tab="sys" role="tab">System</button>
         <button class="tab" data-tab="net" role="tab">Network</button>
+        <button class="tab" data-tab="weather" role="tab" id="tab-weather" hidden>Weather</button>
       </nav>
 
       <!-- Now playing -->
@@ -47,7 +48,6 @@
           <div class="deck__meter" data-bind="row-cpu"><span class="deck__meter-label">CPU</span><dd-meter data-bind="meter-cpu"></dd-meter><span class="deck__meter-value" data-bind="value-cpu"></span></div>
           <div class="deck__meter" data-bind="row-ram"><span class="deck__meter-label">RAM</span><dd-meter data-bind="meter-ram"></dd-meter><span class="deck__meter-value" data-bind="value-ram"></span></div>
           <div class="deck__meter" data-bind="row-gpu"><span class="deck__meter-label">GPU</span><dd-meter data-bind="meter-gpu"></dd-meter><span class="deck__meter-value" data-bind="value-gpu"></span></div>
-          <div class="deck__meter" data-bind="row-disk"><span class="deck__meter-label">Disk</span><dd-meter data-bind="meter-disk"></dd-meter><span class="deck__meter-value" data-bind="value-disk"></span></div>
           <div class="deck__meter" data-bind="row-battery"><span class="deck__meter-label">Battery</span><dd-meter data-bind="meter-battery"></dd-meter><span class="deck__meter-value" data-bind="value-battery"></span></div>
         </div>
         <div class="deck__chips" id="chips"></div>
@@ -61,6 +61,20 @@
           <span class="lg up"><i>Upload</i><b id="net-up">–</b></span>
           <span class="lg tot"><i>This session</i><b id="net-total">0</b></span>
         </div>
+      </section>
+
+      <!-- Weather -->
+      <section class="page weather-page" id="page-weather" data-page="weather" hidden>
+        <div class="wx-now" id="wx-now" hidden>
+          <span class="wx-glyph" id="wx-glyph">–</span>
+          <div class="wx-main">
+            <div class="wx-temp" id="wx-temp">–°</div>
+            <div class="wx-desc" id="wx-desc">—</div>
+            <div class="wx-place" id="wx-place"></div>
+          </div>
+        </div>
+        <div class="wx-forecast" id="wx-forecast"></div>
+        <p class="dd-empty wx-empty" id="wx-empty" hidden>Set a Weather location in the taskbar settings.</p>
       </section>
     </dd-panel>
     <script src="/__sdk/widget-sdk.js"></script>

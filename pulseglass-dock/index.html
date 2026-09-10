@@ -14,23 +14,27 @@
       <dd-panel class="glass" bare>
         <canvas class="field" aria-hidden="true"></canvas>
         <span class="slot" id="slot-start-left"></span>
-        <!-- Custom start button: our own element (image + label + size), which
-             delegates to the hidden host Start button on click. -->
-        <button id="start" class="start" type="button" aria-label="Start">
+        <span class="sep" id="sep-left-start" hidden></span>
+        <button id="start" class="start dock-plain" type="button" aria-label="Start">
           <span class="start__img" id="start-img" hidden></span>
           <span class="start__logo" id="start-logo"></span>
           <span class="start__label" id="start-label">Start</span>
         </button>
         <dd-bar-button id="host-start" action="start" hidden></dd-bar-button>
+        <span class="sep" id="sep-start-right" hidden></span>
         <span class="slot" id="slot-start-right"></span>
       </dd-panel>
     </dd-bar>
 
-    <!-- CENTER: the app strip (start can dock here too) -->
+    <!-- CENTER: recycle/show-desktop + the app strip -->
     <dd-bar id="bar-center" class="seg" place="center" reach="20">
       <dd-panel class="glass" bare>
         <canvas class="field" aria-hidden="true"></canvas>
         <span class="slot" id="slot-dock-start"></span>
+        <span class="sep" id="sep-dock-start" hidden></span>
+        <button id="showdesktop" class="dockbtn dock-plain" type="button" aria-label="Show desktop" hidden><span class="dockbtn__ico ico-desktop"></span></button>
+        <button id="recycle" class="dockbtn dock-plain" type="button" aria-label="Recycle Bin" hidden><span class="dockbtn__ico ico-trash"></span></button>
+        <span class="sep" id="sep-extras" hidden></span>
         <dd-apps id="apps" settings="pins" indicator="dots" stagger="40" sortable></dd-apps>
         <div class="badges" id="badges" aria-hidden="true"></div>
       </dd-panel>
@@ -41,6 +45,7 @@
       <dd-panel class="glass" bare>
         <canvas class="field" aria-hidden="true"></canvas>
         <span class="slot" id="slot-info-left"></span>
+        <span class="sep" id="sep-info-left" hidden></span>
 
         <dd-bar-button id="deck" class="mag" action="pane" pane-w="560" pane-h="360" label="Now playing">
           <span class="np" id="np">
@@ -55,21 +60,33 @@
           </span>
         </dd-bar-button>
 
-        <!-- Vitals as number percents. -->
+        <span class="sep sep--media-vitals"></span>
+
+        <!-- Vitals as number percents (value over label). -->
         <button class="vitals" id="vitals" type="button" aria-label="System">
           <span class="vnum" data-bind="v-cpu"><b class="vnum__v" data-bind="cpu">–</b><i class="vnum__l">CPU</i></span>
           <span class="vnum" data-bind="v-ram"><b class="vnum__v" data-bind="ram">–</b><i class="vnum__l">RAM</i></span>
           <span class="vnum" data-bind="v-gpu"><b class="vnum__v" data-bind="gpu">–</b><i class="vnum__l">GPU</i></span>
         </button>
 
-        <!-- Network: ↓ download / ↑ upload, stacked or side-by-side. -->
+        <span class="sep sep--vitals-net"></span>
+
+        <!-- Network: value over label, matching the vitals in side-by-side mode;
+             stacked mode shows ↓/↑ arrows instead, half-height. -->
         <button class="net" id="net" type="button" aria-label="Network">
-          <span class="net__row"><span class="net__arrow">↓</span><b class="net__v" data-bind="net-rx">–</b></span>
-          <span class="net__row"><span class="net__arrow">↑</span><b class="net__v" data-bind="net-tx">–</b></span>
+          <span class="net__item net--down"><b class="net__v" data-bind="net-rx">–</b><i class="net__cap">Down</i></span>
+          <span class="net__item net--up"><b class="net__v" data-bind="net-tx">–</b><i class="net__cap">Up</i></span>
+        </button>
+
+        <span class="sep" id="sep-weather" hidden></span>
+        <button class="weather" id="weather" type="button" aria-label="Weather" hidden>
+          <span class="weather__glyph" id="weather-glyph">–</span>
+          <span class="weather__temp" id="weather-temp">–°</span>
         </button>
 
         <span class="slot" id="slot-info-right"></span>
         <dd-tray-caret class="tray" settings="systray" separator hidden></dd-tray-caret>
+        <span class="sep" id="sep-far" hidden></span>
         <span class="slot" id="slot-far-right"></span>
       </dd-panel>
     </dd-bar>

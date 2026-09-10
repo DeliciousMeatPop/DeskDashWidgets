@@ -20,6 +20,7 @@
 html, body { height: 100%; overflow: hidden; }
 
 .seg { display: flex; align-items: flex-end; }
+.seg[hidden] { display: none; }
 .glass { height: var(--glass-h); width: auto; }
 .glass::part(surface) {
   --dd-panel-pad: 0;
@@ -69,19 +70,50 @@ dd-app:hover::part(label), #deck:hover::part(label) { opacity: 1; transform: tra
   position: relative; display: flex; align-items: center; gap: calc(var(--u) * 6);
   background: transparent; border: 0; cursor: pointer; color: var(--dd-text);
   height: calc(var(--icon) + var(--dot-lane)); padding: 0 calc(var(--u) * 4) var(--dot-lane);
-  transform-origin: bottom center;
-  transform: translateY(calc(var(--mag-lift, 0px) * -1)) scale(calc(var(--mag-scale, 1) * var(--start-scale, 1)));
+  /* Anchor to the bottom-left so magnification/size can never push it off the
+     left edge of the screen — it grows inward instead. */
+  transform-origin: bottom left;
+  transform: translateY(calc(var(--mag-lift, 0px) * -1)) scale(var(--start-scale, 1));
   transition: transform 90ms var(--spring), color var(--dd-anim-fast) var(--dd-ease);
 }
 #start:hover { color: var(--dd-accent); }
 #start:active { filter: brightness(0.9); }
-.start__logo, .start__img { width: calc(var(--icon) * 0.82); height: calc(var(--icon) * 0.82); display: block; flex: none; }
+/* Only the icon magnifies (the words never scale, so they never run off). */
+.start__logo, .start__img { width: calc(var(--icon) * 0.82); height: calc(var(--icon) * 0.82); display: block; flex: none;
+  transform-origin: bottom center; transform: scale(var(--mag-scale, 1)); transition: transform 90ms var(--spring); }
 .start__logo { background: currentColor;
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' rx='1.5'/%3E%3Crect x='13' y='2' width='9' height='9' rx='1.5'/%3E%3Crect x='2' y='13' width='9' height='9' rx='1.5'/%3E%3Crect x='13' y='13' width='9' height='9' rx='1.5'/%3E%3C/svg%3E") center/contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='2' width='9' height='9' rx='1.5'/%3E%3Crect x='13' y='2' width='9' height='9' rx='1.5'/%3E%3Crect x='2' y='13' width='9' height='9' rx='1.5'/%3E%3Crect x='13' y='13' width='9' height='9' rx='1.5'/%3E%3C/svg%3E") center/contain no-repeat; }
 .start__img { background-size: contain; background-position: center; background-repeat: no-repeat; border-radius: calc(var(--u) * 6); }
 .start__logo[hidden], .start__img[hidden], .start__label[hidden] { display: none; }
-.start__label { font-family: var(--dd-font-display); font-size: calc(var(--u) * 15); letter-spacing: 0.02em; white-space: nowrap; }
+.start__label { font-family: var(--dd-font-display); font-size: calc(var(--u) * 15); letter-spacing: 0.02em; white-space: nowrap; transform-origin: left center; }
+/* The words don't magnify, but they pulse while breathing is on. */
+body.breathing .start__label { animation: pg-word 2s var(--dd-ease); }
+@keyframes pg-word { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+
+/* ---- dock buttons (recycle / show-desktop) ----------------------------- */
+.dockbtn {
+  position: relative; display: grid; place-items: center; background: transparent; border: 0; cursor: pointer;
+  width: var(--icon); height: calc(var(--icon) + var(--dot-lane)); padding: 0 0 var(--dot-lane); color: var(--dd-text);
+  transform-origin: bottom center;
+  transform: translateY(calc(var(--mag-lift, 0px) * -1)) scale(var(--mag-scale, 1));
+  transition: transform 90ms var(--spring), color var(--dd-anim-fast) var(--dd-ease);
+}
+.dockbtn[hidden] { display: none; }
+.dockbtn:hover { color: var(--dd-accent); }
+.dockbtn__ico { width: calc(var(--icon) * 0.82); height: calc(var(--icon) * 0.82); background: currentColor;
+  -webkit-mask-position: center; -webkit-mask-repeat: no-repeat; -webkit-mask-size: contain; mask-position: center; mask-repeat: no-repeat; mask-size: contain; }
+.ico-trash { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 7h12l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7Zm3-3h6l1 2h4v2H4V6h4l1-2Zm1 6v8m4-8v8' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M6 7h12l-1 13a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L6 7Zm3-3h6l1 2h4v2H4V6h4l1-2Zm1 6v8m4-8v8' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+.ico-desktop { -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='4' width='20' height='13' rx='2' fill='none' stroke='black' stroke-width='1.6'/%3E%3Cpath d='M8 21h8M12 17v4' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='4' width='20' height='13' rx='2' fill='none' stroke='black' stroke-width='1.6'/%3E%3Cpath d='M8 21h8M12 17v4' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E"); }
+
+/* ---- separators between groups ----------------------------------------- */
+.sep { flex: none; align-self: center; width: 1px; height: calc(var(--icon) * 0.64);
+  margin: 0 var(--spacer, 8px); background: var(--dd-border); border-radius: 1px; opacity: 0.75; }
+.sep[hidden] { display: none; }
+body:not(.show-media) .sep--media-vitals, body:not(.show-vitals) .sep--media-vitals { display: none; }
+body:not(.show-vitals) .sep--vitals-net, body:not(.show-net) .sep--vitals-net { display: none; }
 
 /* ---- clock (fixed width per face) -------------------------------------- */
 .clock { display: flex; align-items: center; justify-content: center; background: transparent; border: 0; cursor: pointer; color: var(--dd-text); font-family: var(--dd-font-display); line-height: 1; white-space: nowrap; padding: 0 calc(var(--u) * 4); flex: none; }
@@ -120,9 +152,10 @@ body.np-playing .np__art-box { box-shadow: 0 0 calc(var(--u) * 14) color-mix(in 
 body:not(.np-active) .np__text { display: none; }
 body:not(.show-media) #deck { display: none; }
 
-/* ---- vitals numbers (fixed width) -------------------------------------- */
-.vitals { display: flex; align-items: center; gap: calc(var(--u) * 8); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); flex: none; }
-.vnum { display: flex; flex-direction: column; align-items: center; line-height: 1; width: calc(var(--u) * 34); font-family: var(--dd-font-sans); }
+/* ---- vitals numbers (fixed width, separated) --------------------------- */
+.vitals { display: flex; align-items: center; gap: 0; background: transparent; border: 0; cursor: pointer; flex: none; }
+.vnum { display: flex; flex-direction: column; align-items: center; line-height: 1; width: calc(var(--u) * 34); padding: 0 var(--spacer, 8px); font-family: var(--dd-font-sans); }
+.vitals .vnum + .vnum:not([hidden]) { border-left: 1px solid var(--dd-border); }
 .vnum__v { font-size: calc(var(--u) * 16); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; color: var(--v-normal, var(--dd-text)); transition: color var(--dd-anim-fast) var(--dd-ease); }
 .vnum__l { font-size: calc(var(--u) * 8); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dd-text-muted); margin-top: calc(var(--u) * 2); }
 .vnum[data-level="warning"] .vnum__v { color: var(--v-warn, var(--dd-warning)); }
@@ -130,14 +163,34 @@ body:not(.show-media) #deck { display: none; }
 .vnum[hidden] { display: none; }
 body:not(.show-vitals) .vitals { display: none; }
 
-/* ---- network (split ↓/↑, stacked or side-by-side, fixed width) --------- */
-.net { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 1); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); width: calc(var(--u) * 52); flex: none; }
-body.net-inline .net { flex-direction: row; gap: calc(var(--u) * 8); width: calc(var(--u) * 104); }
-.net__row { display: flex; align-items: center; gap: calc(var(--u) * 3); font-family: var(--dd-font-sans); }
-body.net-inline .net__row { width: calc(var(--u) * 48); }
-.net__arrow { color: var(--dd-text-muted); font-size: calc(var(--u) * 10); width: calc(var(--u) * 8); }
-.net__v { font-size: calc(var(--u) * 12); font-weight: var(--dd-font-weight-medium); font-variant-numeric: tabular-nums; color: var(--dd-text); text-align: right; flex: 1; }
+/* ---- network (fixed width so digits never shove) ----------------------- */
+.net { display: flex; background: transparent; border: 0; cursor: pointer; flex: none; font-family: var(--dd-font-sans); }
+.net__item { display: flex; }
+.net__v { font-variant-numeric: tabular-nums; color: var(--dd-text); }
+.net__cap { font-size: calc(var(--u) * 8); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dd-text-muted); }
+
+/* Side-by-side: two columns that match the CPU/RAM/GPU look (value over label). */
+body.net-inline .net { flex-direction: row; gap: 0; align-items: center; }
+body.net-inline .net__item { flex-direction: column; align-items: center; width: calc(var(--u) * 46); padding: 0 var(--spacer, 8px); }
+body.net-inline .net__item + .net__item { border-left: 1px solid var(--dd-border); }
+body.net-inline .net__v { font-size: calc(var(--u) * 14); font-weight: var(--dd-font-weight-semibold); text-align: center; width: 100%; }
+body.net-inline .net__cap { margin-top: calc(var(--u) * 2); }
+
+/* Stacked: two short ↓/↑ rows, together no taller than one vitals column. */
+body:not(.net-inline) .net { flex-direction: column; justify-content: center; width: calc(var(--u) * 48); }
+body:not(.net-inline) .net__item { flex-direction: row; align-items: center; gap: calc(var(--u) * 3); height: calc(var(--u) * 13); }
+body:not(.net-inline) .net__cap { display: none; }
+body:not(.net-inline) .net__item::before { width: calc(var(--u) * 9); text-align: center; color: var(--dd-text-muted); font-size: calc(var(--u) * 11); }
+body:not(.net-inline) .net--down::before { content: "↓"; }
+body:not(.net-inline) .net--up::before { content: "↑"; }
+body:not(.net-inline) .net__v { flex: 1; text-align: right; font-size: calc(var(--u) * 11); font-weight: var(--dd-font-weight-medium); }
 body:not(.show-net) .net { display: none; }
+
+/* ---- weather chip ------------------------------------------------------ */
+.weather { display: flex; align-items: center; gap: calc(var(--u) * 4); background: transparent; border: 0; cursor: pointer; color: var(--dd-text); font-family: var(--dd-font-sans); flex: none; padding: 0 var(--spacer, 8px); }
+.weather[hidden] { display: none; }
+.weather__glyph { font-size: calc(var(--u) * 20); line-height: 1; }
+.weather__temp { font-size: calc(var(--u) * 15); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; }
 
 /* ---- tray -------------------------------------------------------------- */
 .tray { flex: none; height: var(--icon); padding: 0 calc(var(--u) * 4); color: var(--dd-text); font-size: calc(var(--u) * 18); }
@@ -151,8 +204,8 @@ body:not(.show-net) .net { display: none; }
 
 /* ---- motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes aurora-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(var(--u) * -2.5)); } }
-  dd-app:not([entering]):not([leaving]) { animation: aurora-bob 4200ms ease-in-out infinite; animation-delay: calc(var(--dd-app-delay, 0s) * -14); }
+  @keyframes pg-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(var(--u) * -2.5)); } }
+  dd-app:not([entering]):not([leaving]) { animation: pg-bob 4200ms ease-in-out infinite; animation-delay: calc(var(--dd-app-delay, 0s) * -14); }
 }
 body.low-motion { --dd-anim-slow: var(--dd-anim-fast); }
 body.low-motion dd-app, body.low-motion dd-app::part(lift), body.low-motion dd-app::part(ring), body.low-motion #deck::part(lift) { animation: none !important; will-change: auto; }
