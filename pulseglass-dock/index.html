@@ -73,8 +73,8 @@
         <!-- Network: value over label, matching the vitals in side-by-side mode;
              stacked mode shows ↓/↑ arrows instead, half-height. -->
         <button class="net" id="net" type="button" aria-label="Network">
-          <span class="net__item net--down"><b class="net__v" data-bind="net-rx">–</b><i class="net__cap">Down</i></span>
-          <span class="net__item net--up"><b class="net__v" data-bind="net-tx">–</b><i class="net__cap">Up</i></span>
+          <span class="net__item net--down"><b class="net__v" data-bind="net-rx">–</b><i class="net__cap" data-bind="cap-rx">↓</i></span>
+          <span class="net__item net--up"><b class="net__v" data-bind="net-tx">–</b><i class="net__cap" data-bind="cap-tx">↑</i></span>
         </button>
 
         <span class="sep" id="sep-weather" hidden></span>
@@ -99,16 +99,6 @@
     <button id="tools" class="dockbtn dock-plain" type="button" aria-label="Tools" title="Tools" hidden>
       <span class="dockbtn__ico ico-tools"></span>
     </button>
-
-    <!-- Power (JS re-parents the whole group into the chosen slot). The action
-         buttons live on the dock itself so dd.power.run() fires from the bar
-         document — the host refuses power calls made from a popout surface. -->
-    <span id="power-wrap" class="power-wrap" hidden>
-      <button id="power" class="dockbtn dock-plain" type="button" aria-label="Power" title="Power" aria-expanded="false">
-        <span class="dockbtn__ico ico-power"></span>
-      </button>
-      <span id="powerstrip" class="powerstrip" hidden></span>
-    </span>
 
     <!-- The clock lives here and JS re-parents it into the chosen slot. -->
     <button class="clock" id="clock" type="button" aria-label="Clock" hidden>

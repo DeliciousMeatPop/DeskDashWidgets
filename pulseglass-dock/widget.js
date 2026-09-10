@@ -29,9 +29,6 @@ const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
 const recycleEl = document.getElementById("recycle");
 const toolsEl = document.getElementById("tools");
-const powerWrap = document.getElementById("power-wrap");
-const powerEl = document.getElementById("power");
-const powerStrip = document.getElementById("powerstrip");
 const sepDockStart = document.getElementById("sep-dock-start");
 const sepDockEnd = document.getElementById("sep-dock-end");
 const sepLeftStart = document.getElementById("sep-left-start");
@@ -60,7 +57,7 @@ let breatheOn = true, breatheSecs = 5;
 let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true, bTools = true;
 let badgesOn = false;
 let warnAt = 50, dangerAt = 90;
-let netUnitBits = false; // false = MB/s (bytes), true = Mbps (bits)
+let netMode = "dyn-bytes"; // "mbs" | "mbps" | "dyn-bytes" | "dyn-bits"
 let lastStartImage = undefined;
 let customField = false, fieldColors = ["#4ade80", "#38bdf8", "#a78bfa"], glowMul = 1;
 
@@ -195,12 +192,12 @@ function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = f
 let magHosts = [];
 // Every dock item (start/recycle/now-playing + app icons), for magnify hover.
 function allDockItems() {
-  return [startEl, recycleEl, toolsEl, powerEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+  return [startEl, recycleEl, toolsEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // Every element breathing can touch (readouts included), for reset.
 function allBreathable() {
-  return [startEl, recycleEl, toolsEl, powerEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
+  return [startEl, recycleEl, toolsEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
     .filter(Boolean).concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // The subset breathing animates, per the per-item breathe toggles.
@@ -212,7 +209,6 @@ function breatheHosts() {
   if (bMedia && deckEl) out.push(deckEl);
   if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
   if (bTools && !toolsEl.hidden) out.push(toolsEl);
-  if (bTools && !powerWrap.hidden) out.push(powerEl);
   if (bVitals) out.push(vitalsEl);
   if (bNet) out.push(netEl);
   if (bWeather && !weatherEl.hidden) out.push(weatherEl);
@@ -230,7 +226,6 @@ function refreshMagHosts() {
   if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
   if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
   if (magTools && !toolsEl.hidden) list.push(toolsEl);
-  if (magTools && !powerWrap.hidden) list.push(powerEl);
   magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -355,17 +350,29 @@ function pctOf(key) { const v = vitals.value; if (!v) return null; if (key === "
 const level = (p) => (p == null ? null : p >= dangerAt ? "danger" : p >= warnAt ? "warning" : null);
 const numText = (key) => { const p = pctOf(key); return p == null ? "–" : Math.round(p) + "%"; };
 function bps(n) { if (n == null) return "–"; if (n >= 1e6) { const m = n / 1e6; return (m >= 100 ? Math.round(m) : m.toFixed(1)) + "M"; } if (n >= 1e3) return Math.round(n / 1e3) + "K"; return Math.round(n) + "B"; }
-// Taskbar network value in the chosen unit (bytes/s in, MB/s or Mbps out). The
-// caption carries the unit label, so this returns just the number.
+// Taskbar network reading in the chosen unit. Fixed modes (MB/s, Mbps) always
+// use that unit; the dynamic modes pick KB/MB/GB (bytes) or Kbps/Mbps/Gbps
+// (bits) by magnitude, so low speeds don't read as "0.0". Returns { val, unit }.
+function netNum(x) { return x >= 100 ? String(Math.round(x)) : x >= 10 ? x.toFixed(1) : x.toFixed(2); }
 function netFmt(bytesPerSec) {
-  if (bytesPerSec == null) return "–";
-  const v = netUnitBits ? (bytesPerSec * 8) / 1e6 : bytesPerSec / 1e6; // Mbps or MB/s
-  if (v >= 1000) return String(Math.round(v));
-  if (v >= 100) return v.toFixed(0);
-  if (v >= 10) return v.toFixed(1);
-  return v.toFixed(1);
+  if (bytesPerSec == null) return { val: "–", unit: netUnitStatic() };
+  const bits = netMode === "mbps" || netMode === "dyn-bits";
+  const v = bits ? bytesPerSec * 8 : bytesPerSec; // bits/s or bytes/s
+  if (netMode === "mbs") return { val: netNum(v / 1e6), unit: "MB/s" };
+  if (netMode === "mbps") return { val: netNum(v / 1e6), unit: "Mbps" };
+  // dynamic: scale by magnitude
+  const K = bits ? "Kbps" : "KB/s", M = bits ? "Mbps" : "MB/s", G = bits ? "Gbps" : "GB/s", B = bits ? "bps" : "B/s";
+  if (v >= 1e9) return { val: netNum(v / 1e9), unit: G };
+  if (v >= 1e6) return { val: netNum(v / 1e6), unit: M };
+  if (v >= 1e3) return { val: netNum(v / 1e3), unit: K };
+  return { val: String(Math.round(v)), unit: B };
 }
-const netUnitLabel = () => (netUnitBits ? "Mbps" : "MB/s");
+// A representative unit label when there's no reading yet (for the caption).
+function netUnitStatic() {
+  if (netMode === "mbs") return "MB/s";
+  if (netMode === "mbps") return "Mbps";
+  return netMode === "dyn-bits" ? "Mbps" : "MB/s";
+}
 let loggedNet = false;
 function onVitals(v) {
   vitals.value = v;
@@ -482,35 +489,33 @@ function updateEmptySegments() {
   const hasClock = !clockEl.hidden && leftGlass.contains(clockEl);
   const hasRecycle = !recycleEl.hidden && leftGlass.contains(recycleEl);
   const hasTools = !toolsEl.hidden && leftGlass.contains(toolsEl);
-  const hasPower = !powerWrap.hidden && leftGlass.contains(powerWrap);
-  barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools || hasPower);
+  barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools);
 }
 
 // ---- movable-button separators --------------------------------------------
-// Recycle / Tools / Power each carry a leading separator, shown whenever
-// something visible sits before them in the same glass panel — so they're
-// fenced off from Start, the app strip, and each other.
+// Recycle / Tools each carry a leading separator, shown whenever something
+// visible sits before them in the same glass panel — so they're fenced off
+// from Start, the app strip, and each other.
 const mkSep = () => { const s = document.createElement("span"); s.className = "sep sep--dock"; s.hidden = true; return s; };
-const DOCK_CONTENT = "#start, #apps, .dockbtn, .power-wrap, #deck, #vitals, #net, #weather, #clock, .tray";
+const DOCK_CONTENT = "#start, #apps, .dockbtn, #deck, #vitals, #net, #weather, #clock, .tray";
 function hasContentBefore(btn) {
   const panel = btn.closest(".glass"); if (!panel) return false;
   for (const el of panel.querySelectorAll(DOCK_CONTENT)) {
     if (el === btn) return false;
-    if (btn.contains(el)) continue; // skip the button's own children (e.g. #power inside .power-wrap)
+    if (btn.contains(el)) continue;
     if (el.offsetParent !== null && el.getBoundingClientRect().width > 0) return true;
   }
   return false;
 }
 function updateDockSeps() {
   const pairs = [[recycleEl, sepRecycleLead, () => !recycleEl.hidden],
-                 [toolsEl, sepToolsLead, () => !toolsEl.hidden],
-                 [powerWrap, sepPowerLead, () => !powerWrap.hidden]];
+                 [toolsEl, sepToolsLead, () => !toolsEl.hidden]];
   for (const [el, sep, shown] of pairs) sep.hidden = !(shown() && hasContentBefore(el));
 }
 
 // ---- recycle bin -----------------------------------------------------------
 const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
-const sepRecycleLead = mkSep(), sepToolsLead = mkSep(), sepPowerLead = mkSep();
+const sepRecycleLead = mkSep(), sepToolsLead = mkSep();
 let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
 function placeRecycle() {
   const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
@@ -555,9 +560,9 @@ recycleEl.addEventListener("click", () => {
   }
   dd.links.open("shell:RecycleBinFolder").catch((e) => { dd.log("warn", "recycle links.open failed", (e && e.code) || String(e)); recycleViaExplorer(); });
 });
-// ---- tools + power buttons -------------------------------------------------
-// Both share the recycle bin's slot map (the same four dock anchors).
-let wantTools = true, toolsPos = "by start", wantPower = true, powerPos = "by start";
+// ---- tools button ----------------------------------------------------------
+// Shares the recycle bin's slot map (the same four dock anchors).
+let wantTools = true, toolsPos = "by start";
 function placeTools() {
   const slot = document.getElementById(RECYCLE_SLOTS[toolsPos] || "slot-start-right");
   if (slot) { slot.appendChild(toolsEl); slot.insertBefore(sepToolsLead, toolsEl); }
@@ -566,65 +571,12 @@ function placeTools() {
   updateEmptySegments();
   updateDockSeps();
 }
-function placePower() {
-  const slot = document.getElementById(RECYCLE_SLOTS[powerPos] || "slot-start-right");
-  if (slot) { slot.appendChild(powerWrap); slot.insertBefore(sepPowerLead, powerWrap); }
-  powerWrap.hidden = !wantPower;
-  refreshMagHosts();
-  updateEmptySegments();
-  updateDockSeps();
-}
-// Tools still opens a popout (app launches are allowed there). Slightly taller
-// with bottom padding so the last item (Control Panel) isn't clipped.
+// Tools opens a popout (app launches are allowed there). Slightly taller with
+// bottom padding so the last item (Control Panel) isn't clipped.
 toolsEl.addEventListener("click", () => {
   try { dd.popout.open({ size: { w: 232, h: 250 }, anchor: toolsEl, prefer: "up", data: { view: "tools" } }); }
   catch (err) { dd.log("warn", "tools popout failed", (err && err.code) || String(err)); }
 });
-
-// ---- power: an inline strip on the dock -----------------------------------
-// dd.power.run() is refused from a popout surface, so the action buttons live
-// in the bar document. The host raises its own confirmation for shut down /
-// restart / sign out and only runs while the cursor is inside the widget, so
-// there's no consent logic here — just a busy guard against a double-fire.
-const POWER_ACTIONS = [
-  { action: "shutdown", label: "Shut down" },
-  { action: "restart", label: "Restart" },
-  { action: "sleep", label: "Sleep" },
-  { action: "lock", label: "Lock" },
-  { action: "signOut", label: "Sign out" },
-];
-let powerBusy = false, canSleep = true, powerBuilt = false;
-function buildPowerStrip() {
-  powerStrip.replaceChildren();
-  for (const { action, label } of POWER_ACTIONS) {
-    if (action === "sleep" && !canSleep) continue;
-    const b = document.createElement("button");
-    b.type = "button"; b.className = "pw-btn"; b.dataset.action = action;
-    b.title = label; b.setAttribute("aria-label", label);
-    b.innerHTML = `<span class="pw-btn__ico pw-${action}"></span>`;
-    b.addEventListener("click", (e) => { e.stopPropagation(); runPower(action, label, b); });
-    powerStrip.appendChild(b);
-  }
-  powerBuilt = true;
-}
-function openPower(open) {
-  if (open && !powerBuilt) buildPowerStrip();
-  powerStrip.hidden = !open;
-  powerWrap.classList.toggle("open", open);
-  powerEl.setAttribute("aria-expanded", String(open));
-  requestAnimationFrame(() => { refreshMagHosts(); wake(); });
-}
-function runPower(action, label, btn) {
-  if (powerBusy) return;
-  powerBusy = true; powerStrip.querySelectorAll(".pw-btn").forEach((x) => (x.disabled = true));
-  Promise.resolve(dd.power && dd.power.run ? dd.power.run(action) : Promise.reject(new Error("no dd.power")))
-    .catch((err) => dd.log("warn", "power.run failed", action, (err && err.message) || String(err)))
-    .finally(() => { powerBusy = false; powerStrip.querySelectorAll(".pw-btn").forEach((x) => (x.disabled = false)); openPower(false); });
-}
-powerEl.addEventListener("click", (e) => { e.stopPropagation(); openPower(powerStrip.hidden); });
-// Collapse when the pointer leaves the group or focus/click moves away.
-powerWrap.addEventListener("pointerleave", () => { if (!powerBusy) openPower(false); });
-document.addEventListener("pointerdown", (e) => { if (!powerWrap.contains(e.target)) openPower(false); });
 
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -648,11 +600,6 @@ async function main() {
   readPalette();
 
   await findRecycle(); // locate the Recycle Bin (desktop item preferred, apps fallback)
-
-  // Ask the firmware whether this PC can sleep; hide the Sleep button if not.
-  try { if (dd.power && dd.power.capabilities) { const caps = await dd.power.capabilities(); canSleep = caps.sleep !== false; } }
-  catch (e) { dd.log("warn", "power capabilities failed", (e && e.code) || String(e)); }
-  powerBuilt = false; // rebuild the strip on next open with the real capability
 
   bindParts(clockEl, { time: { textContent: time }, date: { textContent: date } });
   dd.time.onTick(onTick); onTick();
@@ -680,9 +627,23 @@ async function main() {
     "v-ram": { "data-level": () => level(pctOf("ram")) },
     "v-gpu": { "data-level": () => level(pctOf("gpu")), hidden: () => pctOf("gpu") == null },
   });
+  const netInline = () => document.body.classList.contains("net-inline");
+  const netVal = (key) => {
+    const n = vitals.value && vitals.value.net; if (!n) return "–";
+    const f = netFmt(n[key]);
+    // Side-by-side puts the unit in the caption; stacked has no caption row, so
+    // the unit rides with the value there.
+    return netInline() ? f.val : `${f.val} ${f.unit}`;
+  };
+  const netCap = (key, arrow) => {
+    const n = vitals.value && vitals.value.net;
+    return `${arrow} ${n ? netFmt(n[key]).unit : netUnitStatic()}`;
+  };
   bindParts(netEl, {
-    "net-rx": { textContent: () => (vitals.value && vitals.value.net ? netFmt(vitals.value.net.rxBps) : "–") },
-    "net-tx": { textContent: () => (vitals.value && vitals.value.net ? netFmt(vitals.value.net.txBps) : "–") },
+    "net-rx": { textContent: () => netVal("rxBps") },
+    "net-tx": { textContent: () => netVal("txBps") },
+    "cap-rx": { textContent: () => netCap("rxBps", "↓") },
+    "cap-tx": { textContent: () => netCap("txBps", "↑") },
   });
   vitalsEl.addEventListener("click", () => openDeck("sys", vitalsEl));
   netEl.addEventListener("click", () => openDeck("net", netEl));
@@ -694,8 +655,8 @@ async function main() {
   segs.forEach((s) => ro.observe(s));
   dd.audio.onSpectrum(onSpectrum);
   for (const s of segs) { s.addEventListener("pointermove", onMove); s.addEventListener("pointerleave", onLeave); }
-  // Right-click is left to DeskDash's own dock menu — the tools + power sheet is
-  // the #tools button instead, so nothing shadows the host options.
+  // Right-click is left to DeskDash's own dock menu — the Tools sheet is the
+  // #tools button instead, so nothing shadows the host options.
   apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
   effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); updateDockSeps(); }); });
 
@@ -738,9 +699,6 @@ async function main() {
     wantTools = s.showTools !== false;
     toolsPos = String(s.toolsPosition || "by start");
     placeTools();
-    wantPower = s.showPower !== false;
-    powerPos = String(s.powerPosition || "by start");
-    placePower();
 
     // Start button
     startLabel.textContent = s.startLabel || "Start";
@@ -756,10 +714,7 @@ async function main() {
 
     document.body.classList.toggle("no-magnify", !magnifyOn);
     document.body.classList.toggle("net-inline", String(s.netLayout || "stacked") === "side by side");
-    netUnitBits = String(s.netUnit || "").startsWith("Mbps");
-    const nu = netUnitLabel();
-    const capD = netEl.querySelector(".net--down .net__cap"), capU = netEl.querySelector(".net--up .net__cap");
-    if (capD) capD.textContent = "↓ " + nu; if (capU) capU.textContent = "↑ " + nu;
+    netMode = { "MB/s": "mbs", "Mbps": "mbps", "Dynamic (KB/MB/GB)": "dyn-bytes", "Dynamic (Kbps/Mbps/Gbps)": "dyn-bits" }[String(s.netUnit || "")] || "dyn-bytes";
 
     clockEl.hidden = s.showClock === false;
     placeClock(String(s.clockPosition || "by start (right)"));

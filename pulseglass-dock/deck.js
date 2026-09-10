@@ -85,6 +85,22 @@ function bps(n) {
   if (n >= 1e3) return `${(n / 1e3).toFixed(0)} KB/s`;
   return `${Math.round(n)} B/s`;
 }
+// Network readout in the unit chosen in taskbar settings (mirrors widget.js):
+// fixed MB/s or Mbps, or dynamic bytes (KB/MB/GB) / bits (Kbps/Mbps/Gbps).
+let deckNetMode = "dyn-bytes";
+function netNum(x) { return x >= 100 ? String(Math.round(x)) : x >= 10 ? x.toFixed(1) : x.toFixed(2); }
+function netRate(bytesPerSec) {
+  if (bytesPerSec == null) return "–";
+  const bits = deckNetMode === "mbps" || deckNetMode === "dyn-bits";
+  const v = bits ? bytesPerSec * 8 : bytesPerSec;
+  if (deckNetMode === "mbs") return `${netNum(v / 1e6)} MB/s`;
+  if (deckNetMode === "mbps") return `${netNum(v / 1e6)} Mbps`;
+  const K = bits ? "Kbps" : "KB/s", M = bits ? "Mbps" : "MB/s", G = bits ? "Gbps" : "GB/s", B = bits ? "bps" : "B/s";
+  if (v >= 1e9) return `${netNum(v / 1e9)} ${G}`;
+  if (v >= 1e6) return `${netNum(v / 1e6)} ${M}`;
+  if (v >= 1e3) return `${netNum(v / 1e3)} ${K}`;
+  return `${Math.round(v)} ${B}`;
+}
 function renderChips() {
   const v = vitals.value; if (!v) return;
   const c = [];
@@ -129,8 +145,8 @@ function setupNetGraph() {
     rx.push(n ? n.rxBps : 0); tx.push(n ? n.txBps : 0);
     if (rx.length > CAP) rx.shift(); if (tx.length > CAP) tx.shift();
     if (n) { totalRx += n.rxBps; totalTx += n.txBps; }
-    document.getElementById("net-down").textContent = n ? bps(n.rxBps) : "–";
-    document.getElementById("net-up").textContent = n ? bps(n.txBps) : "–";
+    document.getElementById("net-down").textContent = n ? netRate(n.rxBps) : "–";
+    document.getElementById("net-up").textContent = n ? netRate(n.txBps) : "–";
     document.getElementById("net-total").textContent = bps(totalRx + totalTx).replace("/s", "");
     draw();
   });
@@ -271,6 +287,7 @@ async function main() {
   const deckSettings = (ctx && ctx.settings) || (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
   warnAt = deckSettings.vitalsWarnAt ?? 50;
   dangerAt = deckSettings.vitalsDangerAt ?? 90;
+  deckNetMode = { "MB/s": "mbs", "Mbps": "mbps", "Dynamic (KB/MB/GB)": "dyn-bytes", "Dynamic (Kbps/Mbps/Gbps)": "dyn-bits" }[String(deckSettings.netUnit || "")] || "dyn-bytes";
   // Which tab to open on: the popout data (set by the taskbar click), else a
   // one-shot storage hint, else the last tab.
   let initialTab = (ctx && ctx.popout && ctx.popout.data && ctx.popout.data.tab) || null;
