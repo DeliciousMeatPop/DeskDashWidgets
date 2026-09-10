@@ -216,6 +216,27 @@ async function setupWeather(st) {
   } catch (e) { dd.log("warn", "weather failed", (e && e.code) || String(e)); nowEl.hidden = true; emptyEl.textContent = "Weather unavailable — check the location name."; emptyEl.hidden = false; }
 }
 
+// ---- power menu (right-click the dock) ------------------------------------
+async function setupMenu() {
+  document.body.classList.add("menu-mode");
+  document.getElementById("tabs").hidden = true;
+  for (const id of ["page-np", "page-sys", "page-drives", "page-net", "page-weather"]) { const el = document.getElementById(id); if (el) el.hidden = true; }
+  const menu = document.getElementById("page-menu"); menu.hidden = false;
+  let apps = [];
+  try { apps = (await dd.apps.list()).apps || []; } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
+  const find = (re) => (apps.find((a) => re.test(a.name || a.id || "")) || {}).id;
+  const ids = { task: find(/task ?manager/i), terminal: find(/terminal/i), explorer: find(/explorer|files?\b/i), settings: find(/^settings|windows settings/i), control: find(/control panel/i) };
+  const close = () => { try { dd.popout && dd.popout.close && dd.popout.close(); } catch {} };
+  for (const btn of menu.querySelectorAll(".menu-item[data-app]")) {
+    const id = ids[btn.dataset.app];
+    if (!id) { btn.disabled = true; continue; }
+    btn.addEventListener("click", () => { dd.apps.launch(id).catch((e) => dd.log("warn", "launch", (e && e.code) || String(e))); close(); });
+  }
+  const startBtn = document.getElementById("menu-start");
+  startBtn.addEventListener("click", () => { try { dd.bar.openStartMenu(); } catch {} close(); });
+  document.getElementById("menu-taskbar").addEventListener("click", () => { try { dd.settings.open({}); } catch {} close(); });
+}
+
 // ---- tabs -----------------------------------------------------------------
 function setupTabs(st, initialTab) {
   const tabs = Array.from(document.querySelectorAll(".tab"));
@@ -237,6 +258,7 @@ function setupTabs(st, initialTab) {
 
 async function main() {
   const ctx = await dd.ready;
+  if (ctx && ctx.popout && ctx.popout.data && ctx.popout.data.view === "menu") { await setupMenu(); return; }
   const deckSettings = (ctx && ctx.settings) || (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
   warnAt = deckSettings.vitalsWarnAt ?? 50;
   dangerAt = deckSettings.vitalsDangerAt ?? 90;

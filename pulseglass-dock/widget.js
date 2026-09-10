@@ -439,7 +439,10 @@ function updateRunning() {
 }
 
 // ---- start button ---------------------------------------------------------
-startEl.addEventListener("click", () => { try { hostStart.click(); } catch {} try { dd.request && dd.request("shell.start"); } catch {} });
+startEl.addEventListener("click", () => {
+  try { if (dd.bar && dd.bar.openStartMenu) return void dd.bar.openStartMenu(); } catch {}
+  try { hostStart.click(); } catch {}
+});
 function placeStart(placement) {
   if (placement === "in the dock") slotDockStart.after(startEl);
   else leftGlass.insertBefore(startEl, hostStart);
@@ -469,7 +472,9 @@ async function findRecycle() {
   // the system-apps catalog is the Explorer path.
   try {
     const res = await dd.folders.list(desktopSrcKey);
-    const it = ((res && res.items) || []).find((i) => /recycle/i.test(i.name || ""));
+    const items = (res && res.items) || [];
+    dd.log("info", "desktop items: " + items.map((i) => i.name).join(", "));
+    const it = items.find((i) => /recycle|trash/i.test(i.name || ""));
     if (it) recycleItem = { src: desktopSrcKey, id: it.id };
   } catch (e) { dd.log("warn", "desktop list failed", (e && e.code) || String(e)); }
   try {
@@ -485,14 +490,18 @@ function recycleViaExplorer() {
 }
 recycleEl.addEventListener("click", () => {
   if (recycleOpenMode === "file explorer") { recycleViaExplorer(); return; }
-  // Default handler: ShellExecute the recycle-bin shell folder. Because DOpus
-  // is the default file handler, Windows routes this to DOpus (like double-
-  // clicking the desktop bin), not Explorer.
-  dd.links.open("shell:RecycleBinFolder").catch((e) => {
-    dd.log("warn", "recycle links.open failed, trying folders.open", (e && e.code) || String(e));
-    if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(recycleViaExplorer);
-    else recycleViaExplorer();
-  });
+  // Default handler: double-click the desktop bin first (DOpus takes it if it's
+  // the default handler), then ShellExecute the shell folder, then Explorer.
+  if (recycleItem) {
+    dd.log("info", "recycle: folders.open (desktop item)");
+    dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => {
+      dd.log("warn", "recycle folders.open failed, trying shell:", (e && e.code) || String(e));
+      dd.links.open("shell:RecycleBinFolder").catch(recycleViaExplorer);
+    });
+    return;
+  }
+  dd.log("info", "recycle: links.open shell: (no desktop item)");
+  dd.links.open("shell:RecycleBinFolder").catch((e) => { dd.log("warn", "recycle links.open failed", (e && e.code) || String(e)); recycleViaExplorer(); });
 });
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -557,6 +566,14 @@ async function main() {
   segs.forEach((s) => ro.observe(s));
   dd.audio.onSpectrum(onSpectrum);
   for (const s of segs) { s.addEventListener("pointermove", onMove); s.addEventListener("pointerleave", onLeave); }
+  // Right-click the dock → a small power menu (Task Manager, Terminal, …). Not
+  // over the app strip or tray, whose right-click is the host's own menu.
+  for (const s of segs) s.addEventListener("contextmenu", (e) => {
+    if (e.target.closest("dd-app, dd-apps, dd-tray-caret")) return;
+    e.preventDefault();
+    try { dd.popout.open({ size: { w: 214, h: 260 }, anchor: e.currentTarget, prefer: "up", data: { view: "menu" } }); }
+    catch (err) { dd.log("warn", "menu popout failed", (err && err.code) || String(err)); }
+  });
   apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
   effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); }); });
 

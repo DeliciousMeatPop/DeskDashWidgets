@@ -114,3 +114,11 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .wx-day__t b { font-weight: var(--dd-font-weight-semibold); }
 .wx-day__t i { color: var(--dd-text-muted); font-style: normal; margin-left: 4px; }
 .wx-empty[hidden] { display: none; }
+
+/* ---- power menu (right-click the dock) ---- */
+body.menu-mode #deck::part(surface) { padding: var(--dd-space-1); gap: 2px; }
+.menu-page { display: flex; flex-direction: column; gap: 2px; }
+.menu-item { appearance: none; border: 0; background: transparent; color: var(--dd-text); text-align: left; padding: 9px 12px; border-radius: var(--dd-radius-md); cursor: pointer; font: inherit; font-size: var(--dd-text-sm, 13px); }
+.menu-item:hover:not([disabled]) { background: var(--dd-surface); }
+.menu-item[disabled] { opacity: .4; cursor: default; }
+.menu-sep { height: 1px; background: var(--dd-border); margin: 4px 6px; }
