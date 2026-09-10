@@ -284,7 +284,7 @@ function openDeck(tab, anchor) {
 
 // ---- clock ----------------------------------------------------------------
 const FACES = ["standard", "large", "analog", "worded", "dual"];
-const SLOTS = { "by start (right)": "slot-start-right", "by start (left)": "slot-start-left", "by info (left)": "slot-info-left", "far right": "slot-far-right" };
+const SLOTS = { "left edge (right)": "slot-start-right", "left edge (left)": "slot-start-left", "by info (left)": "slot-info-left", "far right": "slot-far-right" };
 const WORDS = ["twelve", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven"];
 const MINWORDS = { 5: "five past", 10: "ten past", 15: "quarter past", 20: "twenty past", 25: "twenty-five past", 30: "half past", 35: "twenty-five to", 40: "twenty to", 45: "quarter to", 50: "ten to", 55: "five to" };
 const time = signal(""), date = signal("");
@@ -327,8 +327,8 @@ function placeClock(posKey) {
   const slot = document.getElementById(SLOTS[posKey] || "slot-start-right");
   if (slot && clockEl.parentElement !== slot) slot.appendChild(clockEl);
   const on = !clockEl.hidden;
-  sepLeftStart.hidden = !(on && posKey === "by start (left)");
-  sepStartRight.hidden = !(on && posKey === "by start (right)");
+  sepLeftStart.hidden = !(on && posKey === "left edge (left)");
+  sepStartRight.hidden = !(on && posKey === "left edge (right)");
   sepInfoLeft.hidden = !(on && posKey === "by info (left)");
   sepFar.hidden = !(on && posKey === "far right");
   updateEmptySegments();
@@ -514,7 +514,7 @@ function updateDockSeps() {
 }
 
 // ---- recycle bin -----------------------------------------------------------
-const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
+const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "left edge": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
 const sepRecycleLead = mkSep(), sepToolsLead = mkSep();
 let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
 function placeRecycle() {
@@ -562,7 +562,7 @@ recycleEl.addEventListener("click", () => {
 });
 // ---- tools button ----------------------------------------------------------
 // Shares the recycle bin's slot map (the same four dock anchors).
-let wantTools = true, toolsPos = "by start";
+let wantTools = true, toolsPos = "left edge";
 function placeTools() {
   const slot = document.getElementById(RECYCLE_SLOTS[toolsPos] || "slot-start-right");
   if (slot) { slot.appendChild(toolsEl); slot.insertBefore(sepToolsLead, toolsEl); }
@@ -697,7 +697,7 @@ async function main() {
     recyclePos = String(s.recyclePosition || "in the dock");
     placeRecycle();
     wantTools = s.showTools !== false;
-    toolsPos = String(s.toolsPosition || "by start");
+    toolsPos = String(s.toolsPosition || "left edge");
     placeTools();
 
     // Start button
@@ -717,7 +717,7 @@ async function main() {
     netMode = { "MB/s": "mbs", "Mbps": "mbps", "Dynamic (KB/MB/GB)": "dyn-bytes", "Dynamic (Kbps/Mbps/Gbps)": "dyn-bits" }[String(s.netUnit || "")] || "dyn-bytes";
 
     clockEl.hidden = s.showClock === false;
-    placeClock(String(s.clockPosition || "by start (right)"));
+    placeClock(String(s.clockPosition || "far right"));
     document.body.classList.toggle("show-media", s.showMedia !== false);
     document.body.classList.toggle("show-vitals", s.showVitals !== false);
     document.body.classList.toggle("show-net", s.showNet !== false);
