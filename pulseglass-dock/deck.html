@@ -82,26 +82,15 @@
         <div class="wx-forecast" id="wx-forecast"></div>
         <p class="dd-empty wx-empty" id="wx-empty" hidden>Set a Weather location in the taskbar settings.</p>
       </section>
-      <!-- Tools / Power sheets (opened by the dock's Tools or Power button;
-           setupMenu shows one group per view). -->
+      <!-- Tools sheet (opened by the dock's Tools button). Power lives on the
+           dock itself, since the host refuses power calls from a popout. -->
       <section class="page menu-page" id="page-menu" data-page="menu" hidden>
         <div class="menu-group" id="grp-tools">
           <div class="menu-head">Tools</div>
           <button class="menu-item" data-app="task">Task Manager</button>
-          <button class="menu-item" data-app="terminal">Terminal</button>
           <button class="menu-item" id="menu-explorer">File Explorer</button>
           <button class="menu-item" data-app="settings">Windows Settings</button>
           <button class="menu-item" data-app="control">Control Panel</button>
-        </div>
-        <div class="menu-group" id="grp-power">
-          <div class="menu-head">Power</div>
-          <div class="menu-power">
-            <button class="menu-pw" data-power="lock">Lock</button>
-            <button class="menu-pw" data-power="signOut">Sign out</button>
-            <button class="menu-pw" data-power="sleep">Sleep</button>
-            <button class="menu-pw" data-power="restart">Restart</button>
-            <button class="menu-pw danger" data-power="shutdown">Shut down</button>
-          </div>
         </div>
       </section>
     </dd-panel>

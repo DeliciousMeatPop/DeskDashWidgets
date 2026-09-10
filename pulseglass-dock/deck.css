@@ -116,7 +116,7 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .wx-empty[hidden] { display: none; }
 
 /* ---- tools & power sheet (opened by the dock's Tools button) ---- */
-body.menu-mode #deck::part(surface) { padding: var(--dd-space-1); gap: 2px; overflow-y: auto; }
+body.menu-mode #deck::part(surface) { padding: var(--dd-space-1) var(--dd-space-1) var(--dd-space-3); gap: 2px; overflow-y: auto; }
 .menu-page { display: flex; flex-direction: column; gap: 2px; }
 .menu-group { display: flex; flex-direction: column; gap: 2px; }
 .menu-group[hidden] { display: none; }
@@ -125,12 +125,3 @@ body.menu-mode #deck::part(surface) { padding: var(--dd-space-1); gap: 2px; over
 .menu-item:hover:not([disabled]) { background: var(--dd-surface); }
 .menu-item[disabled] { opacity: .4; cursor: default; }
 .menu-sep { height: 1px; background: var(--dd-border); margin: 4px 6px; }
-/* Power actions as a compact button grid; Shut down reads as the risky one. */
-.menu-power { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 2px 6px 4px; }
-.menu-pw { appearance: none; border: 1px solid var(--dd-border); background: var(--dd-surface-transparent); color: var(--dd-text); padding: 9px 8px; border-radius: var(--dd-radius-md); cursor: pointer; font: inherit; font-size: var(--dd-text-sm, 13px); text-align: center; transition: background var(--dd-anim-fast) var(--dd-ease), border-color var(--dd-anim-fast) var(--dd-ease); }
-.menu-pw:hover:not([disabled]) { background: var(--dd-surface); border-color: var(--dd-accent); }
-.menu-pw[disabled] { opacity: .4; cursor: default; }
-.menu-pw[hidden] { display: none; }
-/* Shut down sits full-width at the bottom as the clear, risky action. */
-.menu-pw.danger { grid-column: 1 / -1; }
-.menu-pw.danger:hover:not([disabled]) { border-color: var(--dd-danger, #f87171); color: var(--dd-danger, #f87171); }

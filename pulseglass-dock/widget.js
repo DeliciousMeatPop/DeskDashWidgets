@@ -29,7 +29,9 @@ const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
 const recycleEl = document.getElementById("recycle");
 const toolsEl = document.getElementById("tools");
+const powerWrap = document.getElementById("power-wrap");
 const powerEl = document.getElementById("power");
+const powerStrip = document.getElementById("powerstrip");
 const sepDockStart = document.getElementById("sep-dock-start");
 const sepDockEnd = document.getElementById("sep-dock-end");
 const sepLeftStart = document.getElementById("sep-left-start");
@@ -58,6 +60,7 @@ let breatheOn = true, breatheSecs = 5;
 let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true, bTools = true;
 let badgesOn = false;
 let warnAt = 50, dangerAt = 90;
+let netUnitBits = false; // false = MB/s (bytes), true = Mbps (bits)
 let lastStartImage = undefined;
 let customField = false, fieldColors = ["#4ade80", "#38bdf8", "#a78bfa"], glowMul = 1;
 
@@ -209,7 +212,7 @@ function breatheHosts() {
   if (bMedia && deckEl) out.push(deckEl);
   if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
   if (bTools && !toolsEl.hidden) out.push(toolsEl);
-  if (bTools && !powerEl.hidden) out.push(powerEl);
+  if (bTools && !powerWrap.hidden) out.push(powerEl);
   if (bVitals) out.push(vitalsEl);
   if (bNet) out.push(netEl);
   if (bWeather && !weatherEl.hidden) out.push(weatherEl);
@@ -227,7 +230,7 @@ function refreshMagHosts() {
   if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
   if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
   if (magTools && !toolsEl.hidden) list.push(toolsEl);
-  if (magTools && !powerEl.hidden) list.push(powerEl);
+  if (magTools && !powerWrap.hidden) list.push(powerEl);
   magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -352,7 +355,25 @@ function pctOf(key) { const v = vitals.value; if (!v) return null; if (key === "
 const level = (p) => (p == null ? null : p >= dangerAt ? "danger" : p >= warnAt ? "warning" : null);
 const numText = (key) => { const p = pctOf(key); return p == null ? "–" : Math.round(p) + "%"; };
 function bps(n) { if (n == null) return "–"; if (n >= 1e6) { const m = n / 1e6; return (m >= 100 ? Math.round(m) : m.toFixed(1)) + "M"; } if (n >= 1e3) return Math.round(n / 1e3) + "K"; return Math.round(n) + "B"; }
-function onVitals(v) { vitals.value = v; shared.cpu = typeof v.cpu === "number" ? Math.max(0, Math.min(1, v.cpu)) : 0; }
+// Taskbar network value in the chosen unit (bytes/s in, MB/s or Mbps out). The
+// caption carries the unit label, so this returns just the number.
+function netFmt(bytesPerSec) {
+  if (bytesPerSec == null) return "–";
+  const v = netUnitBits ? (bytesPerSec * 8) / 1e6 : bytesPerSec / 1e6; // Mbps or MB/s
+  if (v >= 1000) return String(Math.round(v));
+  if (v >= 100) return v.toFixed(0);
+  if (v >= 10) return v.toFixed(1);
+  return v.toFixed(1);
+}
+const netUnitLabel = () => (netUnitBits ? "Mbps" : "MB/s");
+let loggedNet = false;
+function onVitals(v) {
+  vitals.value = v;
+  shared.cpu = typeof v.cpu === "number" ? Math.max(0, Math.min(1, v.cpu)) : 0;
+  // One-shot: record the raw net shape so a suspicious up/down reading can be
+  // traced to the host's own rxBps/txBps rather than our display.
+  if (!loggedNet && v && v.net) { loggedNet = true; dd.log("info", "net sample", JSON.stringify(v.net)); }
+}
 
 // ---- notification badges (opt-in) ----------------------------------------
 const UNREAD = /(?:^|\s)\((\d+)\+?\)|\b(\d+)\s+(?:new|unread|message)/i;
@@ -454,26 +475,51 @@ function placeStart(placement) {
   else leftGlass.insertBefore(startEl, hostStart);
   sepDockStart.hidden = placement !== "in the dock";
   updateEmptySegments();
+  updateDockSeps();
 }
 function updateEmptySegments() {
   const hasStart = leftGlass.contains(startEl);
   const hasClock = !clockEl.hidden && leftGlass.contains(clockEl);
   const hasRecycle = !recycleEl.hidden && leftGlass.contains(recycleEl);
   const hasTools = !toolsEl.hidden && leftGlass.contains(toolsEl);
-  const hasPower = !powerEl.hidden && leftGlass.contains(powerEl);
+  const hasPower = !powerWrap.hidden && leftGlass.contains(powerWrap);
   barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools || hasPower);
+}
+
+// ---- movable-button separators --------------------------------------------
+// Recycle / Tools / Power each carry a leading separator, shown whenever
+// something visible sits before them in the same glass panel — so they're
+// fenced off from Start, the app strip, and each other.
+const mkSep = () => { const s = document.createElement("span"); s.className = "sep sep--dock"; s.hidden = true; return s; };
+const DOCK_CONTENT = "#start, #apps, .dockbtn, .power-wrap, #deck, #vitals, #net, #weather, #clock, .tray";
+function hasContentBefore(btn) {
+  const panel = btn.closest(".glass"); if (!panel) return false;
+  for (const el of panel.querySelectorAll(DOCK_CONTENT)) {
+    if (el === btn) return false;
+    if (btn.contains(el)) continue; // skip the button's own children (e.g. #power inside .power-wrap)
+    if (el.offsetParent !== null && el.getBoundingClientRect().width > 0) return true;
+  }
+  return false;
+}
+function updateDockSeps() {
+  const pairs = [[recycleEl, sepRecycleLead, () => !recycleEl.hidden],
+                 [toolsEl, sepToolsLead, () => !toolsEl.hidden],
+                 [powerWrap, sepPowerLead, () => !powerWrap.hidden]];
+  for (const [el, sep, shown] of pairs) sep.hidden = !(shown() && hasContentBefore(el));
 }
 
 // ---- recycle bin -----------------------------------------------------------
 const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
+const sepRecycleLead = mkSep(), sepToolsLead = mkSep(), sepPowerLead = mkSep();
 let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
 function placeRecycle() {
   const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
-  if (slot) slot.appendChild(recycleEl);
+  if (slot) { slot.appendChild(recycleEl); slot.insertBefore(sepRecycleLead, recycleEl); }
   recycleEl.hidden = !wantRecycle;
-  sepDockEnd.hidden = !(wantRecycle && recyclePos === "in the dock");
+  sepDockEnd.hidden = true; // the recycle bin now carries its own leading separator
   refreshMagHosts();
   updateEmptySegments();
+  updateDockSeps();
 }
 async function findRecycle() {
   // The desktop's Recycle Bin virtual item, so "default handler" mode can
@@ -514,27 +560,71 @@ recycleEl.addEventListener("click", () => {
 let wantTools = true, toolsPos = "by start", wantPower = true, powerPos = "by start";
 function placeTools() {
   const slot = document.getElementById(RECYCLE_SLOTS[toolsPos] || "slot-start-right");
-  if (slot) slot.appendChild(toolsEl);
+  if (slot) { slot.appendChild(toolsEl); slot.insertBefore(sepToolsLead, toolsEl); }
   toolsEl.hidden = !wantTools;
   refreshMagHosts();
   updateEmptySegments();
+  updateDockSeps();
 }
 function placePower() {
   const slot = document.getElementById(RECYCLE_SLOTS[powerPos] || "slot-start-right");
-  if (slot) slot.appendChild(powerEl);
-  powerEl.hidden = !wantPower;
+  if (slot) { slot.appendChild(powerWrap); slot.insertBefore(sepPowerLead, powerWrap); }
+  powerWrap.hidden = !wantPower;
   refreshMagHosts();
   updateEmptySegments();
+  updateDockSeps();
 }
-// Each opens its own compact sheet in the deck popout, so neither overflows.
+// Tools still opens a popout (app launches are allowed there). Slightly taller
+// with bottom padding so the last item (Control Panel) isn't clipped.
 toolsEl.addEventListener("click", () => {
-  try { dd.popout.open({ size: { w: 232, h: 258 }, anchor: toolsEl, prefer: "up", data: { view: "tools" } }); }
+  try { dd.popout.open({ size: { w: 232, h: 250 }, anchor: toolsEl, prefer: "up", data: { view: "tools" } }); }
   catch (err) { dd.log("warn", "tools popout failed", (err && err.code) || String(err)); }
 });
-powerEl.addEventListener("click", () => {
-  try { dd.popout.open({ size: { w: 236, h: 214 }, anchor: powerEl, prefer: "up", data: { view: "power" } }); }
-  catch (err) { dd.log("warn", "power popout failed", (err && err.code) || String(err)); }
-});
+
+// ---- power: an inline strip on the dock -----------------------------------
+// dd.power.run() is refused from a popout surface, so the action buttons live
+// in the bar document. The host raises its own confirmation for shut down /
+// restart / sign out and only runs while the cursor is inside the widget, so
+// there's no consent logic here — just a busy guard against a double-fire.
+const POWER_ACTIONS = [
+  { action: "shutdown", label: "Shut down" },
+  { action: "restart", label: "Restart" },
+  { action: "sleep", label: "Sleep" },
+  { action: "lock", label: "Lock" },
+  { action: "signOut", label: "Sign out" },
+];
+let powerBusy = false, canSleep = true, powerBuilt = false;
+function buildPowerStrip() {
+  powerStrip.replaceChildren();
+  for (const { action, label } of POWER_ACTIONS) {
+    if (action === "sleep" && !canSleep) continue;
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "pw-btn"; b.dataset.action = action;
+    b.title = label; b.setAttribute("aria-label", label);
+    b.innerHTML = `<span class="pw-btn__ico pw-${action}"></span>`;
+    b.addEventListener("click", (e) => { e.stopPropagation(); runPower(action, label, b); });
+    powerStrip.appendChild(b);
+  }
+  powerBuilt = true;
+}
+function openPower(open) {
+  if (open && !powerBuilt) buildPowerStrip();
+  powerStrip.hidden = !open;
+  powerWrap.classList.toggle("open", open);
+  powerEl.setAttribute("aria-expanded", String(open));
+  requestAnimationFrame(() => { refreshMagHosts(); wake(); });
+}
+function runPower(action, label, btn) {
+  if (powerBusy) return;
+  powerBusy = true; powerStrip.querySelectorAll(".pw-btn").forEach((x) => (x.disabled = true));
+  Promise.resolve(dd.power && dd.power.run ? dd.power.run(action) : Promise.reject(new Error("no dd.power")))
+    .catch((err) => dd.log("warn", "power.run failed", action, (err && err.message) || String(err)))
+    .finally(() => { powerBusy = false; powerStrip.querySelectorAll(".pw-btn").forEach((x) => (x.disabled = false)); openPower(false); });
+}
+powerEl.addEventListener("click", (e) => { e.stopPropagation(); openPower(powerStrip.hidden); });
+// Collapse when the pointer leaves the group or focus/click moves away.
+powerWrap.addEventListener("pointerleave", () => { if (!powerBusy) openPower(false); });
+document.addEventListener("pointerdown", (e) => { if (!powerWrap.contains(e.target)) openPower(false); });
 
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -558,6 +648,11 @@ async function main() {
   readPalette();
 
   await findRecycle(); // locate the Recycle Bin (desktop item preferred, apps fallback)
+
+  // Ask the firmware whether this PC can sleep; hide the Sleep button if not.
+  try { if (dd.power && dd.power.capabilities) { const caps = await dd.power.capabilities(); canSleep = caps.sleep !== false; } }
+  catch (e) { dd.log("warn", "power capabilities failed", (e && e.code) || String(e)); }
+  powerBuilt = false; // rebuild the strip on next open with the real capability
 
   bindParts(clockEl, { time: { textContent: time }, date: { textContent: date } });
   dd.time.onTick(onTick); onTick();
@@ -586,8 +681,8 @@ async function main() {
     "v-gpu": { "data-level": () => level(pctOf("gpu")), hidden: () => pctOf("gpu") == null },
   });
   bindParts(netEl, {
-    "net-rx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.rxBps) : "–") },
-    "net-tx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.txBps) : "–") },
+    "net-rx": { textContent: () => (vitals.value && vitals.value.net ? netFmt(vitals.value.net.rxBps) : "–") },
+    "net-tx": { textContent: () => (vitals.value && vitals.value.net ? netFmt(vitals.value.net.txBps) : "–") },
   });
   vitalsEl.addEventListener("click", () => openDeck("sys", vitalsEl));
   netEl.addEventListener("click", () => openDeck("net", netEl));
@@ -602,7 +697,7 @@ async function main() {
   // Right-click is left to DeskDash's own dock menu — the tools + power sheet is
   // the #tools button instead, so nothing shadows the host options.
   apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
-  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); }); });
+  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); updateDockSeps(); }); });
 
   dd.settings.bind((s) => {
     reactivity = String(s.reactivity || "audio and vitals");
@@ -661,6 +756,10 @@ async function main() {
 
     document.body.classList.toggle("no-magnify", !magnifyOn);
     document.body.classList.toggle("net-inline", String(s.netLayout || "stacked") === "side by side");
+    netUnitBits = String(s.netUnit || "").startsWith("Mbps");
+    const nu = netUnitLabel();
+    const capD = netEl.querySelector(".net--down .net__cap"), capU = netEl.querySelector(".net--up .net__cap");
+    if (capD) capD.textContent = "↓ " + nu; if (capU) capU.textContent = "↑ " + nu;
 
     clockEl.hidden = s.showClock === false;
     placeClock(String(s.clockPosition || "by start (right)"));
