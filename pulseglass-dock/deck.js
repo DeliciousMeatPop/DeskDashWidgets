@@ -17,7 +17,6 @@ const chipsEl = document.getElementById("chips");
 const titleEl = document.querySelector(".deck__title");
 const marqueeEl = document.querySelector(".deck__marquee");
 
-const artOf = (v) => (v && (v.art || v.artUrl || v.artwork || v.thumbnail || v.image || v.cover)) || "";
 const np = signal(null);
 const vitals = signal(null);
 const shownSeconds = signal(0);
@@ -161,7 +160,7 @@ async function main() {
   await dd.ready;
 
   bindParts(mediaEl, {
-    fallback: { hidden: () => Boolean(artOf(np.value)) },
+    fallback: { hidden: () => Boolean(np.value && np.value.art) },
     title: { textContent: () => (np.value && np.value.title) || "Unknown title" },
     artist: { textContent: () => (np.value && np.value.artist) || "" },
     album: { textContent: () => (np.value && np.value.album) || "" },
@@ -170,7 +169,7 @@ async function main() {
     total: { textContent: () => fmt((np.value && np.value.position && np.value.position.durationSeconds) || 0) },
   });
   effect(() => {
-    const art = artOf(np.value);
+    const art = np.value && np.value.art;
     if (art) { if (artEl.getAttribute("src") !== art) artEl.src = art; artEl.hidden = false; }
     else { artEl.removeAttribute("src"); artEl.hidden = true; }
     requestAnimationFrame(updateMarquee);

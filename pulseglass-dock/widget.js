@@ -261,7 +261,6 @@ function placeClock(posKey) { const slot = document.getElementById(SLOTS[posKey]
 
 // ---- now playing (+ marquee) ---------------------------------------------
 const np = signal(null);
-const artOf = (v) => (v && (v.art || v.artUrl || v.artwork || v.thumbnail || v.image || v.cover)) || "";
 function updateMarquee() {
   const wrap = npEl.querySelector(".np__marquee"), title = npEl.querySelector(".np__title");
   if (!wrap || !title) return;
@@ -344,11 +343,11 @@ async function main() {
 
   const artEl = npEl.querySelector('[data-bind="art"]');
   bindParts(npEl, {
-    fallback: { hidden: () => Boolean(artOf(np.value)) },
+    fallback: { hidden: () => Boolean(np.value && np.value.art) },
     title: { textContent: () => (np.value && np.value.title) || "" },
     artist: { textContent: () => (np.value && (np.value.artist || np.value.album)) || "" },
   });
-  effect(() => { const art = artOf(np.value); if (art) { if (artEl.getAttribute("src") !== art) artEl.src = art; artEl.hidden = false; } else { artEl.removeAttribute("src"); artEl.hidden = true; } });
+  effect(() => { const art = np.value && np.value.art; if (art) { if (artEl.getAttribute("src") !== art) artEl.src = art; artEl.hidden = false; } else { artEl.removeAttribute("src"); artEl.hidden = true; } });
   effect(() => {
     const s = np.value;
     document.body.classList.toggle("np-active", Boolean(s && s.hasSession));
