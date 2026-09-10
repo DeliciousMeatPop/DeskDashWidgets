@@ -165,6 +165,13 @@ function onSpectrum({ bins }) {
   for (let i = 0; i < n; i++) { const v = bins[i]; shared.bands[i] = v; if (v > 0.004) any = true; }
   if (any) shared.lastAudioAt = performance.now();
 }
+// Colour running apps, grey out pinned/idle ones (an alternative to dots).
+function updateRunning() {
+  for (const e of store.entries.peek()) {
+    const el = apps.appFor && apps.appFor(e.key);
+    if (el) el.classList.toggle("running", !!(e.wins && e.wins.length));
+  }
+}
 function updateHalo() {
   const center = fields.find((f) => f.isCenter);
   if (!center) return;
@@ -418,8 +425,8 @@ async function main() {
     if (!lowMotion) { s.addEventListener("pointermove", onMove); s.addEventListener("pointerleave", onLeave); }
     else s.addEventListener("pointermove", (e) => magnify(e.clientX)), s.addEventListener("pointerleave", resetMag);
   }
-  apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); });
-  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); }); });
+  apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
+  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); }); });
 
   dd.settings.bind((s) => {
     reactivity = String(s.reactivity || "audio and vitals");
@@ -442,6 +449,11 @@ async function main() {
     rootStyle.setProperty("--v-normal", s.vitalsNormalColor || "#e7edf5");
     rootStyle.setProperty("--v-warn", s.vitalsWarnColor || "#f59e0b");
     rootStyle.setProperty("--v-danger", s.vitalsDangerColor || "#f87171");
+
+    const rs = String(s.runningStyle || "dots");
+    document.body.classList.toggle("running-colour", rs === "colour" || rs === "colour + dots");
+    document.body.classList.toggle("hide-dots", rs === "colour");
+    document.documentElement.style.setProperty("--idle-dim", (100 - (s.dimIdle ?? 45)) / 100);
 
     applyStart();
     placeClock(String(s.clockPosition || "by start (right)"));

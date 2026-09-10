@@ -20,6 +20,11 @@
     { "key": "reactivity", "type": "select", "label": "Light field",
       "options": ["audio and vitals", "audio", "calm"], "default": "audio and vitals" },
 
+    { "key": "runningStyle", "type": "select", "label": "Open apps shown by",
+      "options": ["dots", "colour", "colour + dots"], "default": "dots" },
+    { "key": "dimIdle", "type": "number", "label": "Idle icon dim (%)", "min": 0, "max": 100, "default": 45,
+      "showIf": { "key": "runningStyle", "equals": "colour" } },
+
     { "key": "startMode", "type": "select", "label": "Start button",
       "options": ["windows", "launcher"], "default": "windows" },
     { "key": "startLabel", "type": "text", "label": "Start button label", "placeholder": "Start", "default": "Start" },

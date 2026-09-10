@@ -62,6 +62,13 @@ dd-app[focused]:not([launching])::part(ring) { opacity: var(--dd-opacity-dim); }
 dd-app:active:not([launching])::part(lift), #start:active::part(lift),
 #start-launcher:active::part(lift), #deck:active::part(lift) { transform: translateY(calc(var(--u) * 1)) scale(0.92); }
 dd-app::part(indicator) { bottom: calc(var(--u) * 2); gap: calc(var(--u) * 3); }
+
+/* Colour-codes open apps: running icons stay in colour, pinned/idle icons
+   desaturate and dim. --idle-dim (opacity) comes from the settings slider. */
+body.running-colour dd-app::part(icon) { transition: filter var(--dd-anim-slow) var(--dd-ease), opacity var(--dd-anim-slow) var(--dd-ease); }
+body.running-colour dd-app:not(.running)::part(icon) { filter: grayscale(1); opacity: var(--idle-dim, 0.55); }
+body.running-colour dd-app.running::part(icon) { filter: none; opacity: 1; }
+body.hide-dots dd-app::part(indicator) { display: none; }
 dd-app::part(dot) { width: calc(var(--u) * 3.5); height: calc(var(--u) * 3.5); transition: background var(--dd-anim-fast) var(--dd-ease); }
 dd-app::part(label), #start::part(label), #start-launcher::part(label), #deck::part(label) {
   bottom: var(--label-lane); transform: translate(-50%, calc(var(--u) * 3)); max-width: calc(var(--u) * 240);
