@@ -11,7 +11,7 @@
     "storage": true,
     "desktop": true,
     "folders": true,
-    "apps": true,
+    "systemApps": true,
     "games": true
   },
   "settings": [
