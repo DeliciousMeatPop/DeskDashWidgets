@@ -83,16 +83,19 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .lg.up i::before { background: var(--dd-success); }
 .lg b { color: var(--dd-text); font-variant-numeric: tabular-nums; font-weight: var(--dd-font-weight-semibold); }
 
-/* ---- drives (compact; gutters reserved both sides so nothing is cut off) ---- */
-.drives-page { overflow-y: auto; scrollbar-gutter: stable both-edges; }
-.drives { display: flex; flex-direction: column; gap: 9px; }
+/* ---- drives (compact + inset so the scrollbar never covers text) ---- */
+.drives-page { overflow-y: auto; }
+.drives { display: flex; flex-direction: column; gap: 5px; padding: 0 14px; }
 .drive { display: grid; grid-template-columns: 1fr auto; column-gap: 8px; align-items: baseline; }
 .drive__head { display: contents; }
-.drive__letter { grid-column: 1; font-size: 14px; font-weight: var(--dd-font-weight-bold); }
-.drive__pct { grid-column: 2; color: var(--dd-text-muted); font-size: var(--dd-text-xs, 11px); font-variant-numeric: tabular-nums; }
-.drive__bar { grid-column: 1 / -1; height: 6px; margin: 3px 0; border-radius: 999px; background: var(--dd-border); overflow: hidden; }
+.drive__letter { grid-column: 1; grid-row: 1; font-size: 13px; font-weight: var(--dd-font-weight-bold); line-height: 1.1; }
+.drive__pct { grid-column: 2; grid-row: 1; color: var(--dd-text-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.drive__bar { grid-column: 1 / -1; grid-row: 2; height: 5px; margin: 2px 0; border-radius: 999px; background: var(--dd-border); overflow: hidden; }
 .drive__bar i { display: block; height: 100%; background: var(--dd-accent); transition: width .4s var(--dd-ease); }
-.drive__sub { grid-column: 1 / -1; color: var(--dd-text-muted); font-size: var(--dd-text-xs, 11px); font-variant-numeric: tabular-nums; }
+.drive__sub { grid-column: 1 / -1; grid-row: 3; color: var(--dd-text-muted); font-size: 10px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.drives-page::-webkit-scrollbar { width: 8px; }
+.drives-page::-webkit-scrollbar-track { background: transparent; }
+.drives-page::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--dd-text-muted) 35%, transparent); border-radius: 4px; }
 
 /* ---- weather ---- */
 .weather-page { display: flex; flex-direction: column; gap: var(--dd-space-3); }
