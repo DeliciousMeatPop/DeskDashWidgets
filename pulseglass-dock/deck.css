@@ -115,7 +115,7 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .wx-day__t i { color: var(--dd-text-muted); font-style: normal; margin-left: 4px; }
 .wx-empty[hidden] { display: none; }
 
-/* ---- tools & power sheet (opened by the dock's Tools button) ---- */
+/* ---- tools sheet (opened by the dock's Tools button) ---- */
 body.menu-mode #deck::part(surface) { padding: var(--dd-space-1) var(--dd-space-1) var(--dd-space-3); gap: 2px; overflow-y: auto; }
 .menu-page { display: flex; flex-direction: column; gap: 2px; }
 .menu-group { display: flex; flex-direction: column; gap: 2px; }
