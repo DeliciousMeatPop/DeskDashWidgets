@@ -42,6 +42,9 @@
     { "key": "recyclePosition", "type": "select", "label": "Recycle Bin position",
       "options": ["in the dock", "by start", "left of info", "far right"], "default": "in the dock",
       "showIf": { "key": "showRecycleBin", "equals": true } },
+    { "key": "recycleOpen", "type": "select", "label": "Recycle Bin opens with",
+      "options": ["default handler", "file explorer"], "default": "default handler",
+      "showIf": { "key": "showRecycleBin", "equals": true } },
     { "key": "desktopSrc", "type": "filePath", "label": "Desktop source (blank = Desktop icons)", "placeholder": "leave blank", "pick": "folder",
       "showIf": { "key": "showRecycleBin", "equals": true } },
 

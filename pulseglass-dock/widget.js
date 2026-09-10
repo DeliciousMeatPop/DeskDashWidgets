@@ -422,7 +422,7 @@ function updateEmptySegments() {
 
 // ---- recycle bin -----------------------------------------------------------
 const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
-let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
+let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null, recycleOpenMode = "default handler";
 function placeRecycle() {
   const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
   if (slot) slot.appendChild(recycleEl);
@@ -432,22 +432,34 @@ function placeRecycle() {
   updateEmptySegments();
 }
 async function findRecycle() {
-  // Prefer the desktop's Recycle Bin virtual item so it opens with the user's
-  // default handler (e.g. Directory Opus); fall back to the system-apps catalog.
+  // The desktop's Recycle Bin virtual item, so "default handler" mode can
+  // double-click it (respecting Directory Opus if it's set to replace Explorer);
+  // the system-apps catalog is the Explorer path.
   try {
     const res = await dd.folders.list(desktopSrcKey);
     const it = ((res && res.items) || []).find((i) => /recycle/i.test(i.name || ""));
-    if (it) { recycleItem = { src: desktopSrcKey, id: it.id }; return; }
+    if (it) recycleItem = { src: desktopSrcKey, id: it.id };
   } catch (e) { dd.log("warn", "desktop list failed", (e && e.code) || String(e)); }
   try {
     const r = await dd.apps.list();
     const bin = ((r && r.apps) || []).find((a) => /recycle/i.test(a.name || a.id || ""));
     recycleId = bin ? bin.id : null;
   } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
+  dd.log("info", "recycle: desktop item " + (recycleItem ? "found" : "NOT found") + ", apps id " + (recycleId ? "found" : "NOT found"));
 }
 recycleEl.addEventListener("click", () => {
-  if (recycleItem) { dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => dd.log("warn", "recycle open", (e && e.code) || String(e))); return; }
+  const explorer = recycleOpenMode === "file explorer";
+  if (!explorer && recycleItem) {
+    dd.log("info", "recycle: default handler (folders.open)");
+    dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => {
+      dd.log("warn", "recycle folders.open failed, using Explorer", (e && e.code) || String(e));
+      if (recycleId) dd.apps.launch(recycleId).catch(() => {});
+    });
+    return;
+  }
+  dd.log("info", "recycle: Explorer (apps.launch)" + (recycleItem ? "" : " — no desktop item"));
   if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
+  else if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(() => {});
 });
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -547,6 +559,7 @@ async function main() {
     rs.setProperty("--spacer", (s.spacing ?? 8) + "px");
     wantRecycle = s.showRecycleBin === true;
     recyclePos = String(s.recyclePosition || "in the dock");
+    recycleOpenMode = String(s.recycleOpen || "default handler");
     placeRecycle();
 
     // Start button
