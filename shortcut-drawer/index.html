@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/__sdk/dd-base.css" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Capture regions (handle + board) are marked from widget.js after first
+         layout, like the Desktop Drawer, so the SDK never measures an empty
+         boot-time panel. -->
+    <div id="panel" class="panel" data-collapse="top">
+      <button id="header" class="header" title="Collapse">
+        <dd-text id="header-title" class="title header-title" variant="label">Launch</dd-text>
+        <span id="chevron" class="chevron">▴</span>
+      </button>
+      <div id="content" class="content">
+        <dd-text id="board-title" class="title board-title" variant="label">Launch</dd-text>
+        <div id="grid" class="body"></div>
+      </div>
+    </div>
+    <script src="/__sdk/widget-sdk.js"></script>
+    <script src="widget.js"></script>
+  </body>
+</html>

@@ -11,7 +11,6 @@
         <button class="tab" data-tab="np" role="tab" aria-selected="true">Now playing</button>
         <button class="tab" data-tab="sys" role="tab">System</button>
         <button class="tab" data-tab="net" role="tab">Network</button>
-        <button class="tab" data-tab="apps" role="tab">Apps</button>
       </nav>
 
       <!-- Now playing -->
@@ -22,7 +21,7 @@
         </div>
         <div class="np-main">
           <div class="deck__track">
-            <dd-text class="deck__title" variant="title" data-bind="title"></dd-text>
+            <div class="deck__marquee"><dd-text class="deck__title" variant="title" data-bind="title"></dd-text></div>
             <dd-text class="deck__artist" variant="muted" size="sm" data-bind="artist"></dd-text>
             <dd-text class="deck__album" variant="muted" size="xs" data-bind="album"></dd-text>
           </div>
@@ -36,10 +35,8 @@
             <dd-icon-button round id="playBtn" name="play" title="Play"></dd-icon-button>
             <dd-icon-button round id="nextBtn" name="skip-forward" title="Next"></dd-icon-button>
           </div>
-          <div class="deck__sound-row">
-            <dd-icon class="deck__sound-ico" src="volume.svg" tint></dd-icon>
-            <div class="deck__sound" id="sound"></div>
-          </div>
+          <!-- The volume pill owns its own mute speaker + % — no extra icon. -->
+          <div class="deck__sound" id="sound"></div>
           <p class="dd-empty deck__empty">Nothing playing</p>
         </div>
       </section>
@@ -60,15 +57,10 @@
       <section class="page net-page" id="page-net" data-page="net" hidden>
         <canvas id="net-graph" class="net-graph"></canvas>
         <div class="net-legend">
-          <span class="lg down"><b id="net-down">–</b> down</span>
-          <span class="lg up"><b id="net-up">–</b> up</span>
-          <span class="lg tot">session Σ <b id="net-total">0</b></span>
+          <span class="lg down"><i>Download</i><b id="net-down">–</b></span>
+          <span class="lg up"><i>Upload</i><b id="net-up">–</b></span>
+          <span class="lg tot"><i>This session</i><b id="net-total">0</b></span>
         </div>
-      </section>
-
-      <!-- Apps launcher -->
-      <section class="page apps-page" id="page-apps" data-page="apps" hidden>
-        <div class="launch-grid" id="launch-grid"></div>
       </section>
     </dd-panel>
     <script src="/__sdk/widget-sdk.js"></script>
