@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="/__sdk/dd-base.css" />
+    <link rel="stylesheet" href="deck.css" />
+  </head>
+  <body>
+    <dd-panel id="deck" class="deck">
+      <nav class="tabs" id="tabs" role="tablist">
+        <button class="tab" data-tab="np" role="tab" aria-selected="true">Now playing</button>
+        <button class="tab" data-tab="sys" role="tab">System</button>
+        <button class="tab" data-tab="net" role="tab">Network</button>
+        <button class="tab" data-tab="apps" role="tab">Apps</button>
+      </nav>
+
+      <!-- Now playing -->
+      <section class="page np-page" id="page-np" data-page="np">
+        <div class="deck__art-box">
+          <img class="deck__art" data-bind="art" alt="" />
+          <dd-icon class="deck__fallback" src="note.svg" tint data-bind="fallback"></dd-icon>
+        </div>
+        <div class="np-main">
+          <div class="deck__track">
+            <dd-text class="deck__title" variant="title" data-bind="title"></dd-text>
+            <dd-text class="deck__artist" variant="muted" size="sm" data-bind="artist"></dd-text>
+            <dd-text class="deck__album" variant="muted" size="xs" data-bind="album"></dd-text>
+          </div>
+          <div class="deck__seek" data-bind="seekRow">
+            <span class="deck__time" data-bind="elapsed"></span>
+            <input type="range" class="dd-slider" id="seek" min="0" max="100" step="1" value="0" />
+            <span class="deck__time" data-bind="total"></span>
+          </div>
+          <div class="deck__transport">
+            <dd-icon-button round id="prevBtn" name="skip-back" title="Previous"></dd-icon-button>
+            <dd-icon-button round id="playBtn" name="play" title="Play"></dd-icon-button>
+            <dd-icon-button round id="nextBtn" name="skip-forward" title="Next"></dd-icon-button>
+          </div>
+          <div class="deck__sound" id="sound"></div>
+          <p class="dd-empty deck__empty">Nothing playing</p>
+        </div>
+      </section>
+
+      <!-- System -->
+      <section class="page" id="page-sys" data-page="sys" hidden>
+        <div class="deck__meters" id="meters">
+          <div class="deck__meter" data-bind="row-cpu"><span class="deck__meter-label">CPU</span><dd-meter data-bind="meter-cpu"></dd-meter><span class="deck__meter-value" data-bind="value-cpu"></span></div>
+          <div class="deck__meter" data-bind="row-ram"><span class="deck__meter-label">RAM</span><dd-meter data-bind="meter-ram"></dd-meter><span class="deck__meter-value" data-bind="value-ram"></span></div>
+          <div class="deck__meter" data-bind="row-gpu"><span class="deck__meter-label">GPU</span><dd-meter data-bind="meter-gpu"></dd-meter><span class="deck__meter-value" data-bind="value-gpu"></span></div>
+          <div class="deck__meter" data-bind="row-disk"><span class="deck__meter-label">Disk</span><dd-meter data-bind="meter-disk"></dd-meter><span class="deck__meter-value" data-bind="value-disk"></span></div>
+          <div class="deck__meter" data-bind="row-battery"><span class="deck__meter-label">Battery</span><dd-meter data-bind="meter-battery"></dd-meter><span class="deck__meter-value" data-bind="value-battery"></span></div>
+        </div>
+        <div class="deck__chips" id="chips"></div>
+      </section>
+
+      <!-- Network -->
+      <section class="page net-page" id="page-net" data-page="net" hidden>
+        <canvas id="net-graph" class="net-graph"></canvas>
+        <div class="net-legend">
+          <span class="lg down"><b id="net-down">–</b> down</span>
+          <span class="lg up"><b id="net-up">–</b> up</span>
+          <span class="lg tot">session Σ <b id="net-total">0</b></span>
+        </div>
+      </section>
+
+      <!-- Apps launcher -->
+      <section class="page apps-page" id="page-apps" data-page="apps" hidden>
+        <div class="launch-grid" id="launch-grid"></div>
+      </section>
+    </dd-panel>
+    <script src="/__sdk/widget-sdk.js"></script>
+    <script src="deck.js"></script>
+  </body>
+</html>

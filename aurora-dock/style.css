@@ -1,168 +1,180 @@
-/* Aurora Dock — bar styling.
- * Sizes derive from --u (the manifest thickness) so the host size slider scales
- * everything. Never hard-code pixel sizes that should track the slider. */
+/* Aurora Dock — bar styling. Reset, <dd-bar>, <dd-panel>, <dd-icon> come from
+   /__sdk/dd-base.css. Geometry is a unit system on the strip height: the
+   manifest thickness is 128 logical px, so 100vh == 128 CSS px and --u == 1
+   design px. Structure follows Aurora; the dock behaviours (magnification,
+   number vitals, badges, breathing) are the additions. */
+
 :root {
-  --u: calc(100vh / 96);          /* one design unit = 1/thickness of the bar */
-  --dock-h: calc(var(--u) * 64);
-  --icon: calc(var(--u) * 40);
-  --gap: calc(var(--u) * 8);
-  --radius: calc(var(--u) * 18);
-}
-[data-edge="left"],
-[data-edge="right"] { --u: calc(100vw / 96); }
-
-* { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; background: transparent; overflow: hidden;
-  color: var(--dd-text, #e7edf5); font-family: var(--dd-font-sans, system-ui, sans-serif); }
-
-/* Segments are the only mouse-catching regions; the rest clicks through. */
-.seg { position: fixed; display: flex; align-items: flex-end; }
-.seg-main { inset: 0; justify-content: center; }
-.seg-side { inset: 0 0 0 auto; justify-content: flex-end; align-items: center; padding: 0 calc(var(--u) * 10); }
-
-/* ---- The glass dock ---------------------------------------------------- */
-.dock, .tray {
-  display: flex; align-items: flex-end; gap: var(--gap);
-  padding: calc(var(--u) * 6) calc(var(--u) * 10);
-  margin-bottom: calc(var(--u) * 8);
-  background: var(--dd-surface, rgba(17,22,31,.72));
-  border: 1px solid var(--dd-border, rgba(148,163,184,.16));
-  border-radius: var(--radius);
-  box-shadow: var(--dd-shadow, 0 8px 24px rgba(0,0,0,.35)),
-              inset 0 1px 0 rgba(255,255,255,.06);
-  backdrop-filter: blur(18px) saturate(1.3);
-  -webkit-backdrop-filter: blur(18px) saturate(1.3);
-}
-.tray { align-items: center; gap: var(--gap); }
-
-.sep { width: 1px; align-self: stretch; margin: calc(var(--u) * 6) 0;
-  background: var(--dd-border, rgba(148,163,184,.22)); border-radius: 1px; }
-
-/* ---- Dock items + magnification --------------------------------------- */
-.dock-item {
-  --s: 1; --lift: 0px;
-  appearance: none; border: 0; background: transparent; color: inherit;
-  cursor: pointer; font: inherit; padding: calc(var(--u) * 4);
-  display: flex; align-items: center; justify-content: center; gap: calc(var(--u) * 5);
-  border-radius: calc(var(--u) * 12);
-  transform-origin: bottom center;
-  transform: translateY(calc(var(--lift) * -1)) scale(var(--s));
-  transition: transform 90ms var(--dd-ease, cubic-bezier(.2,0,0,1)),
-              background-color 140ms ease;
-}
-.dock-item:hover { background: var(--dd-surface-strong, rgba(255,255,255,.08)); }
-.dock-item:active { filter: brightness(.92); }
-.dock-item .ico, .dock-item .ico svg { width: var(--icon); height: var(--icon); display: block; }
-.dock-item .ico { color: var(--dd-text, #e7edf5); }
-
-/* Start */
-.start { padding: calc(var(--u) * 4) calc(var(--u) * 9); gap: calc(var(--u) * 6); }
-.start .ico { color: var(--dd-accent, #7dd3fc); }
-.start-label { font-family: var(--dd-font-display, inherit); font-size: calc(var(--u) * 15);
-  letter-spacing: .02em; white-space: nowrap; }
-
-/* Host apps strip sits inline with the dock rhythm. */
-.apps { display: flex; align-items: flex-end; }
-
-/* ---- Now playing chip -------------------------------------------------- */
-.media { max-width: calc(var(--u) * 160); padding-right: calc(var(--u) * 10); }
-.media .art { width: var(--icon); height: var(--icon); border-radius: calc(var(--u) * 8);
-  background: rgba(255,255,255,.08) center/cover no-repeat; flex: none;
-  display: grid; place-items: center; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
-.media .art.noart svg { width: 62%; height: 62%; color: var(--dd-text-muted); }
-.media-meta { display: flex; flex-direction: column; min-width: 0; text-align: left; line-height: 1.15; }
-.media-title { font-size: calc(var(--u) * 13); font-weight: 600; max-width: calc(var(--u) * 92);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.media-sub { font-size: calc(var(--u) * 11); color: var(--dd-text-muted, #94a3b8);
-  max-width: calc(var(--u) * 92); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* little equaliser */
-.eq { display: inline-flex; align-items: flex-end; gap: 2px; height: var(--icon); }
-.eq i { width: calc(var(--u) * 3); background: var(--dd-accent, #7dd3fc); border-radius: 2px;
-  animation: bounce 900ms ease-in-out infinite; }
-.eq i:nth-child(2){ animation-delay:-.2s } .eq i:nth-child(3){ animation-delay:-.4s } .eq i:nth-child(4){ animation-delay:-.6s }
-.media.paused .eq i { animation-play-state: paused; opacity: .4; }
-@keyframes bounce { 0%,100%{ height: 22% } 50%{ height: 92% } }
-
-/* ---- Vitals (number percents) ----------------------------------------- */
-.stats { display: flex; align-items: flex-end; gap: calc(var(--u) * 4); }
-.stat { --fill: 0%; flex-direction: column; gap: 0; min-width: calc(var(--u) * 40);
-  padding: calc(var(--u) * 4) calc(var(--u) * 7); position: relative; overflow: hidden; }
-.stat::after { content: ""; position: absolute; inset: auto 0 0 0; height: 2px;
-  width: var(--fill); background: var(--dd-accent, #7dd3fc);
-  transition: width 400ms var(--dd-ease, ease); }
-.stat .stat-v { font-variant-numeric: tabular-nums; font-size: calc(var(--u) * 16);
-  font-weight: 700; line-height: 1; }
-.stat .stat-l { font-size: calc(var(--u) * 9); letter-spacing: .12em; text-transform: uppercase;
-  color: var(--dd-text-muted, #94a3b8); margin-top: 2px; }
-.stat.warm .stat-v { color: var(--dd-warning, #fbbf24); }
-.stat.warm::after { background: var(--dd-warning, #fbbf24); }
-.stat.hot .stat-v { color: var(--dd-danger, #f87171); }
-.stat.hot::after { background: var(--dd-danger, #f87171); }
-
-/* ---- Trailing tray / clock / caret ------------------------------------ */
-.tray { padding: calc(var(--u) * 5) calc(var(--u) * 10); margin-bottom: calc(var(--u) * 8); }
-.badge-rail { display: flex; align-items: center; gap: calc(var(--u) * 4); }
-.badge-chip { position: relative; padding: calc(var(--u) * 3); }
-.badge-ico { width: var(--icon); height: var(--icon); border-radius: 50%;
-  background: var(--dd-surface-strong, rgba(255,255,255,.1)) center/cover no-repeat;
-  display: grid; place-items: center; font-size: calc(var(--u) * 15); font-weight: 700; }
-.badge-ico.letter { color: var(--dd-accent, #7dd3fc); }
-.badge-count { position: absolute; top: 0; right: 0; min-width: calc(var(--u) * 15);
-  height: calc(var(--u) * 15); padding: 0 calc(var(--u) * 3); border-radius: 999px;
-  background: var(--dd-danger, #f87171); color: #fff; font-size: calc(var(--u) * 10);
-  font-weight: 700; display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,.4); }
-.badge-count.pop { animation: pop 320ms var(--dd-ease, ease); }
-@keyframes pop { 0%{ transform: scale(0) } 60%{ transform: scale(1.25) } 100%{ transform: scale(1) } }
-
-.clock { flex-direction: column; gap: 0; padding: calc(var(--u) * 3) calc(var(--u) * 8);
-  font-variant-numeric: tabular-nums; }
-.clock-text { display: flex; flex-direction: column; align-items: center; line-height: 1.1; }
-.clock-main { font-size: calc(var(--u) * 17); font-weight: 700; font-family: var(--dd-font-display, inherit); }
-.clock-sub { font-size: calc(var(--u) * 10); color: var(--dd-text-muted, #94a3b8); white-space: nowrap; }
-.clock[data-face="worded"] .clock-main { font-size: calc(var(--u) * 13); font-weight: 600; text-transform: capitalize; }
-.clock[data-face="digital"] .clock-main { font-size: calc(var(--u) * 20); }
-.clock-canvas { width: var(--dock-h); height: var(--dock-h); }
-
-.caret-wrap { position: relative; display: inline-flex; }
-.tray-badge { position: absolute; top: -4px; right: -4px; min-width: calc(var(--u) * 14);
-  height: calc(var(--u) * 14); padding: 0 3px; border-radius: 999px; background: var(--dd-accent, #7dd3fc);
-  color: var(--dd-accent-contrast, #0b1220); font-size: calc(var(--u) * 9); font-weight: 700;
-  display: grid; place-items: center; }
-
-/* ---- Breathing pulse --------------------------------------------------- */
-.dock.breathe .dock-item { animation: breathe 2.2s var(--bd, 0ms) var(--dd-ease, ease); }
-@keyframes breathe {
-  0%, 100% { transform: translateY(calc(var(--lift) * -1)) scale(var(--s)); }
-  45% { transform: translateY(calc(var(--lift) * -1 - 5px)) scale(calc(var(--s) * 1.08));
-        filter: drop-shadow(0 0 6px var(--dd-accent, #7dd3fc)); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .dock.breathe .dock-item, .eq i { animation: none; }
-  .dock-item { transition: none; }
+  --u: calc(100vh / 128);
+  --glass-h: calc(var(--u) * 56);
+  --glass-pad: calc(var(--u) * 14);
+  --icon: calc(var(--u) * 36);
+  --lift: calc(var(--u) * 10);
+  --dot-lane: calc(var(--u) * 10);
+  --label-lane: calc(var(--u) * 62);
+  --art: calc(var(--u) * 40);
+  --zone-gap: calc(var(--u) * 10);
+  --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
-/* ---- Tooltips (cheap, native-ish) ------------------------------------- */
-.dock-item[data-tip] { position: relative; }
-.dock-item[data-tip]:hover::before {
-  content: attr(data-tip); position: absolute; bottom: 100%; left: 50%;
-  transform: translate(-50%, -6px); white-space: nowrap;
-  background: var(--dd-surface-strong, rgba(13,17,24,.92)); color: var(--dd-text, #e7edf5);
-  border: 1px solid var(--dd-border); border-radius: 6px; padding: 3px 8px;
-  font-size: calc(var(--u) * 10); pointer-events: none; opacity: 0; animation: tipIn 120ms 350ms forwards;
+html, body { height: 100%; overflow: hidden; }
+
+#glass { width: 100%; height: var(--glass-h); }
+#glass::part(surface) {
+  --dd-panel-pad: 0;
+  position: relative; display: flex; flex-direction: row; align-items: center;
+  gap: var(--zone-gap); height: 100%; padding: 0 var(--glass-pad); overflow: visible;
+  background: var(--dd-surface); border: 0; border-top: 1px solid var(--dd-border);
+  border-radius: 0; box-shadow: var(--dd-shadow);
 }
-@keyframes tipIn { to { opacity: 1; } }
+.field { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.zone { position: relative; display: flex; flex: none; align-items: center; gap: var(--zone-gap); height: 100%; }
 
-/* ---- Edge adaptations -------------------------------------------------- */
-[data-edge="top"] .seg-main { align-items: flex-start; }
-[data-edge="top"] .dock { margin: calc(var(--u) * 8) 0 0; }
-[data-edge="top"] .dock-item { transform-origin: top center;
-  transform: translateY(var(--lift)) scale(var(--s)); }
-[data-edge="top"] .dock-item[data-tip]:hover::before { bottom: auto; top: 100%; transform: translate(-50%, 6px); }
+dd-apps {
+  position: relative; display: flex; flex: 1; min-width: 0;
+  align-items: center; justify-content: center; gap: calc(var(--u) * 6); height: 100%;
+}
 
-[data-edge="left"] .seg-main, [data-edge="right"] .seg-main { align-items: center; }
-[data-edge="left"] .seg-side, [data-edge="right"] .seg-side { inset: auto 0 0 0; justify-content: center; }
-[data-edge="left"] .dock, [data-edge="right"] .dock,
-[data-edge="left"] .tray, [data-edge="right"] .tray { flex-direction: column; margin: 0 calc(var(--u) * 8); }
-[data-edge="left"] .sep, [data-edge="right"] .sep { width: auto; height: 1px; margin: 0 calc(var(--u) * 6); }
-[data-edge="left"] .dock-item, [data-edge="right"] .dock-item { transform-origin: center left; }
-[data-edge="right"] .dock-item { transform-origin: center right; }
+/* ---- entries + magnification ------------------------------------------- */
+dd-app, #start, #launcher, #deck {
+  width: var(--icon); height: calc(var(--icon) + var(--dot-lane)); padding: 0 0 var(--dot-lane);
+}
+/* The lift part carries our magnification: scale + rise driven by custom
+   properties widget.js writes per pointer frame (neighbours get a smaller
+   value from the Gaussian falloff). */
+dd-app::part(lift), #start::part(lift), #launcher::part(lift), #deck::part(lift) {
+  height: var(--icon); transform-origin: 50% 100%;
+  transform: translateY(calc(var(--mag-lift, 0px) * -1)) scale(var(--mag-scale, 1));
+  transition: transform 90ms var(--spring);
+}
+/* When magnification is off, fall back to the component's plain hover lift. */
+body.no-magnify dd-app:hover::part(lift),
+body.no-magnify #start:hover::part(lift),
+body.no-magnify #launcher:hover::part(lift),
+body.no-magnify #deck:hover::part(lift) { transform: translateY(calc(var(--lift) * -1)); }
+
+dd-app::part(icon) { width: 92%; height: 92%; }
+dd-app::part(fallback) { font-size: calc(var(--icon) * 0.42); }
+dd-app::part(ring) { inset: calc(var(--u) * -3); border-width: 1px; transition: opacity var(--dd-anim-fast) var(--dd-ease); }
+dd-app[focused]:not([launching])::part(ring) { opacity: var(--dd-opacity-dim); }
+dd-app:active:not([launching])::part(lift), #start:active::part(lift),
+#launcher:active::part(lift), #deck:active::part(lift) { transform: translateY(calc(var(--u) * 1)) scale(0.92); }
+dd-app::part(indicator) { bottom: calc(var(--u) * 2); gap: calc(var(--u) * 3); }
+dd-app::part(dot) { width: calc(var(--u) * 3.5); height: calc(var(--u) * 3.5); transition: background var(--dd-anim-fast) var(--dd-ease); }
+dd-app::part(label), #start::part(label), #launcher::part(label), #deck::part(label) {
+  bottom: var(--label-lane); transform: translate(-50%, calc(var(--u) * 3)); max-width: calc(var(--u) * 240);
+  padding: calc(var(--u) * 2) calc(var(--u) * 6);
+  transition: opacity var(--dd-anim-fast) var(--dd-ease), transform var(--dd-anim-fast) var(--dd-ease);
+}
+dd-app:hover::part(label), #start:hover::part(label), #launcher:hover::part(label), #deck:hover::part(label) {
+  opacity: 1; transform: translate(-50%, 0);
+}
+
+/* ---- start + launcher -------------------------------------------------- */
+#start {
+  --dd-icon-size: calc(var(--icon) * 0.7);
+  --slack: calc((var(--glass-h) - var(--icon) - var(--dot-lane)) / 2);
+  align-self: stretch; width: calc(var(--icon) + var(--glass-pad)); height: auto;
+  padding: var(--slack) 0 calc(var(--slack) + var(--dot-lane)) var(--glass-pad);
+  margin-left: calc(var(--glass-pad) * -1); color: var(--dd-text);
+  transition: color var(--dd-anim-fast) var(--dd-ease);
+}
+#start::part(label) { left: calc(var(--glass-pad) + var(--icon) / 2); }
+#start:hover { color: var(--dd-accent); }
+#launcher { --dd-icon-size: calc(var(--icon) * 0.66); color: var(--dd-text); }
+#launcher:hover { color: var(--dd-accent); }
+#launcher[hidden] { display: none; }
+.launcher__ico { --dd-icon-size: calc(var(--icon) * 0.66); }
+
+/* ---- clock (five faces) ------------------------------------------------ */
+.clock {
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  background: transparent; border: 0; cursor: pointer; color: var(--dd-text);
+  font-family: var(--dd-font-display); line-height: 1; white-space: nowrap; padding: 0 calc(var(--u) * 4);
+}
+.clock__text { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 1); padding-bottom: calc(var(--u) * 2); }
+.clock__time { font-size: calc(var(--u) * 24); font-weight: var(--dd-font-weight-semibold); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.clock__date { color: var(--dd-text-muted); font-family: var(--dd-font-sans); font-size: calc(var(--u) * 11); letter-spacing: 0.04em; text-transform: uppercase; }
+.clock[data-face="digital"] .clock__time { font-size: calc(var(--u) * 30); }
+.clock[data-face="worded"] .clock__time { font-size: calc(var(--u) * 15); font-weight: var(--dd-font-weight-medium); text-transform: capitalize; }
+.clock__face { width: var(--glass-h); height: var(--glass-h); }
+.clock__face[hidden] { display: none; }
+body:not(.show-clock) .clock { display: none; }
+
+/* ---- now playing (from Aurora) ----------------------------------------- */
+#deck { width: auto; height: var(--art); padding: 0; color: var(--dd-text); }
+#deck::part(lift) { height: 100%; }
+#deck::part(press) { inset: calc(var(--u) * -4); border-radius: var(--dd-radius-full); }
+#deck::part(label) { bottom: calc(var(--label-lane) - var(--dot-lane)); }
+.np { display: flex; align-items: center; gap: calc(var(--u) * 8); max-width: calc(var(--u) * 220); height: 100%; }
+.np__art-box {
+  position: relative; flex: none; width: var(--art); height: var(--art); overflow: hidden;
+  border-radius: var(--dd-radius-md); background: var(--dd-surface); border: 1px solid var(--dd-border);
+  transition: box-shadow var(--dd-anim-slow) var(--dd-ease);
+}
+body.np-playing .np__art-box { box-shadow: 0 0 calc(var(--u) * 14) color-mix(in srgb, var(--dd-accent) 55%, transparent); }
+.np__art { display: block; width: 100%; height: 100%; object-fit: cover; }
+.np__fallback { --dd-icon-size: calc(var(--art) * 0.5); position: absolute; inset: 0; display: grid; place-items: center; color: var(--dd-text-muted); }
+.np__text { display: flex; flex-direction: column; gap: calc(var(--u) * 2); min-width: 0; font-family: var(--dd-font-sans); line-height: 1.1; text-align: left; }
+.np__title, .np__artist { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.np__title { font-size: calc(var(--u) * 12); font-weight: var(--dd-font-weight-medium); }
+.np__artist { color: var(--dd-text-muted); font-size: calc(var(--u) * 10); }
+body:not(.np-active) .np__text { display: none; }
+body:not(.show-media) #deck { display: none; }
+
+/* ---- vitals as numbers ------------------------------------------------- */
+.vitals { display: flex; align-items: center; gap: calc(var(--u) * 8); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); }
+.vnum { display: flex; flex-direction: column; align-items: center; line-height: 1; font-family: var(--dd-font-sans); }
+.vnum__v { font-size: calc(var(--u) * 16); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; color: var(--dd-text); }
+.vnum__l { font-size: calc(var(--u) * 8); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dd-text-muted); margin-top: calc(var(--u) * 2); }
+.vnum[data-level="warning"] .vnum__v { color: var(--dd-warning); }
+.vnum[data-level="danger"] .vnum__v { color: var(--dd-danger); }
+.vnum[hidden] { display: none; }
+body:not(.show-vitals) .vnum:not(.vnum--net) { display: none; }
+body:not(.show-net) .vnum--net { display: none; }
+
+/* ---- tray -------------------------------------------------------------- */
+.tray { flex: none; height: var(--icon); padding: 0 calc(var(--u) * 4); color: var(--dd-text); font-size: calc(var(--u) * 18); }
+.tray::part(separator) { height: calc(var(--icon) * 0.7); }
+
+/* ---- notification badges ----------------------------------------------- */
+.badges { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.badge {
+  position: absolute; top: 0; left: 0; min-width: calc(var(--u) * 15); height: calc(var(--u) * 15);
+  padding: 0 calc(var(--u) * 3); border-radius: var(--dd-radius-full);
+  background: var(--dd-danger); color: #fff; font-family: var(--dd-font-sans);
+  font-size: calc(var(--u) * 10); font-weight: var(--dd-font-weight-semibold);
+  display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  transition: transform 160ms var(--dd-ease);
+}
+.badge.pop { animation: badge-pop 320ms var(--dd-ease); }
+@keyframes badge-pop { 0% { scale: 0; } 60% { scale: 1.3; } 100% { scale: 1; } }
+
+/* ---- breathing pulse --------------------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes dock-breathe {
+    0%, 100% { transform: translateY(0) scale(1); }
+    45% { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 6px var(--dd-accent)); }
+  }
+  body.breathe dd-app::part(lift),
+  body.breathe #start::part(lift),
+  body.breathe #launcher::part(lift),
+  body.breathe #deck::part(lift) {
+    animation: dock-breathe 2.2s var(--breathe-delay, 0s) var(--dd-ease) both;
+  }
+}
+
+/* ---- resting bob (from Aurora) ----------------------------------------- */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes aurora-bob {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(calc(var(--u) * -2.5)); }
+  }
+  dd-app:not([entering]):not([leaving]) { animation: aurora-bob 4200ms ease-in-out infinite; animation-delay: calc(var(--dd-app-delay, 0s) * -14); }
+}
+
+body.low-motion { --dd-anim-slow: var(--dd-anim-fast); }
+body.low-motion dd-app, body.low-motion dd-app::part(lift), body.low-motion dd-app::part(ring),
+body.low-motion #start::part(lift), body.low-motion #launcher::part(lift), body.low-motion #deck::part(lift) {
+  animation: none !important; will-change: auto;
+}
