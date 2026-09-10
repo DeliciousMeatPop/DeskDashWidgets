@@ -228,7 +228,12 @@ async function setupMenu(st) {
   let apps = [];
   try { apps = (await dd.apps.list()).apps || []; } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
   const find = (re) => (apps.find((a) => re.test(a.name || a.id || "")) || {}).id;
-  const ids = { task: find(/task ?manager/i), terminal: find(/terminal|command prompt|powershell/i), settings: find(/^settings|windows settings/i), control: find(/control panel/i) };
+  const ids = {
+    task: find(/task ?manager/i),
+    terminal: find(/windows terminal|terminal|powershell|command prompt|\bcmd\b|\bwt\b/i),
+    settings: find(/^settings|windows settings/i),
+    control: find(/control panel/i),
+  };
   for (const btn of menu.querySelectorAll(".menu-item[data-app]")) {
     const id = ids[btn.dataset.app];
     if (!id) { btn.disabled = true; continue; }
@@ -244,9 +249,6 @@ async function setupMenu(st) {
     });
     close();
   });
-
-  document.getElementById("menu-start").addEventListener("click", () => { try { dd.bar.openStartMenu(); } catch {} close(); });
-  document.getElementById("menu-taskbar").addEventListener("click", () => { try { dd.settings.open({}); } catch {} close(); });
 
   // Power actions via dd.power.run(). Sleep hides when the machine can't sleep.
   let caps = null;

@@ -520,7 +520,7 @@ function placeTools() {
 }
 // Opens the deck popout in its "menu" view — the tools + power sheet.
 toolsEl.addEventListener("click", () => {
-  try { dd.popout.open({ size: { w: 236, h: 452 }, anchor: toolsEl, prefer: "up", data: { view: "menu" } }); }
+  try { dd.popout.open({ size: { w: 236, h: 388 }, anchor: toolsEl, prefer: "up", data: { view: "menu" } }); }
   catch (err) { dd.log("warn", "tools menu popout failed", (err && err.code) || String(err)); }
 });
 

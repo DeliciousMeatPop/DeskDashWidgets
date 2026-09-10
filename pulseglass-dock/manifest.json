@@ -138,6 +138,7 @@
     "systemApps": true,
     "desktop": true,
     "folders": true,
+    "files": true,
     "storage": true,
     "links": { "prefixes": ["shell:"] },
     "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"], "rateLimit": 120 }
