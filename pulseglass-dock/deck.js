@@ -1,6 +1,6 @@
-// Aurora Dock deck — the bar's one popout, as a small control centre with
+// Pulseglass Dock deck — the bar's one popout, as a small control centre with
 // tabs: Now playing (transport + seek + volume), System (meters), Network
-// (live graph) and Apps (launcher). Media and vitals logic follows Aurora's
+// (live graph) and Apps (launcher). Media and vitals logic follows Pulseglass's
 // deck; the graph and launcher are the additions.
 
 const { create, bindParts, signal, effect } = dd.ui;
@@ -22,7 +22,7 @@ const vitals = signal(null);
 const shownSeconds = signal(0);
 let dragging = false;
 
-const warn = (what) => (err) => dd.log("warn", `aurora dock deck ${what} failed`, err && err.code ? err.code : String(err));
+const warn = (what) => (err) => dd.log("warn", `pulseglass dock deck ${what} failed`, err && err.code ? err.code : String(err));
 
 function fmt(seconds) {
   const s = Math.max(0, Math.round(seconds));
@@ -92,8 +92,8 @@ function renderChips() {
   if (v.net) c.push(`↓ ${bps(v.net.rxBps)}`, `↑ ${bps(v.net.txBps)}`);
   if (v.wifi) c.push(`📶 ${v.wifi.ssid || "Wi-Fi"}${v.wifi.signal != null ? " · " + v.wifi.signal + "%" : ""}`);
   if (v.battery) c.push(`${v.battery.charging ? "⚡ Charging" : "🔋 Battery"} ${Math.round(v.battery.percent)}%`);
-  if (v.disk != null) c.push(`Disk ${Math.round(v.disk * 100)}%`);
-  if (Array.isArray(v.drives)) for (const d of v.drives) c.push(`${d.label || d.mount || "Drive"} ${Math.round(d.percent != null ? d.percent : (d.usedMb / d.totalMb) * 100)}%`);
+  if (v.disk != null) c.push(`Disk usage ${Math.round(v.disk * 100)}%`);
+  if (Array.isArray(v.drives)) for (const d of v.drives) c.push(`${d.label || d.mount || "Drive"} ${Math.round(d.percent != null ? d.percent : (d.usedMb / d.totalMb) * 100)}% used`);
   if (v.uptimeSec != null) { const hrs = Math.floor(v.uptimeSec / 3600); c.push(`Up ${hrs >= 24 ? Math.floor(hrs / 24) + "d " + (hrs % 24) + "h" : hrs + "h"}`); }
   chipsEl.replaceChildren(...c.map((t) => { const s = document.createElement("span"); s.className = "chip"; s.textContent = t; return s; }));
 }
@@ -203,7 +203,7 @@ async function main() {
 
   soundEl.append(create("dd-volume-pill"));
 
-  bindParts(systemEl, { ...meterRow("cpu"), ...meterRow("ram"), ...meterRow("gpu"), ...meterRow("disk"), ...meterRow("battery") });
+  bindParts(systemEl, { ...meterRow("cpu"), ...meterRow("ram"), ...meterRow("gpu"), ...meterRow("battery") });
   effect(renderChips);
   dd.system.onVitals((v) => { vitals.value = v; });
   const status = await dd.system.status().catch(warn("system status"));

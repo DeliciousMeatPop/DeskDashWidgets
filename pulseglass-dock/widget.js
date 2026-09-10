@@ -24,8 +24,18 @@ const hostStart = document.getElementById("host-start");
 const badgesEl = document.getElementById("badges");
 const centerCanvas = document.querySelector("#bar-center .field");
 const leftGlass = startEl.parentElement;
+const barLeft = document.getElementById("bar-left");
 const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
+const recycleEl = document.getElementById("recycle");
+const showdesktopEl = document.getElementById("showdesktop");
+const sepDockStart = document.getElementById("sep-dock-start");
+const sepExtras = document.getElementById("sep-extras");
+const sepLeftStart = document.getElementById("sep-left-start");
+const sepStartRight = document.getElementById("sep-start-right");
+const sepInfoLeft = document.getElementById("sep-info-left");
+const sepFar = document.getElementById("sep-far");
+let recycleId = null;
 
 const BANDS = 500, AUDIO_HOLD_MS = 400;
 const LAYERS = [
@@ -159,7 +169,8 @@ function updateHalo() {
 let hoverActive = false;
 function onMove(e) {
   hoverActive = true;
-  if (breatheRAF) { cancelAnimationFrame(breatheRAF); breatheRAF = 0; }
+  if (breatheRAF) { cancelAnimationFrame(breatheRAF); endBreathe(); }
+  document.body.classList.remove("breathing");
   if (!still()) {
     for (const f of fields) {
       const r = f.canvas.getBoundingClientRect();
@@ -173,7 +184,7 @@ function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = f
 
 let magHosts = [];
 function refreshMagHosts() {
-  magHosts = [startEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+  magHosts = [startEl, showdesktopEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -197,15 +208,17 @@ function scheduleBreathe() {
   if (!breatheOn || !breatheSecs || lowMotion) return;
   breatheTimer = setInterval(runBreathe, breatheSecs * 1000);
 }
+function endBreathe(items) { if (items) items.forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
 function runBreathe() {
-  if (document.hidden || hoverActive || !magnifyOn) return;
+  if (document.hidden || hoverActive) return;
   refreshMagHosts();
   const items = magHosts.slice(), start = performance.now();
   cancelAnimationFrame(breatheRAF);
+  document.body.classList.add("breathing"); // pulses the start words (CSS)
   const tick = (now) => {
-    if (hoverActive) { breatheRAF = 0; return; } // hover takes the channel
+    if (hoverActive) return endBreathe(); // hover takes the channel
     const t = (now - start) / BREATHE_DUR;
-    if (t >= 1) { items.forEach((el) => setVars(el, 1, 0)); breatheRAF = 0; return; }
+    if (t >= 1) return endBreathe(items);
     items.forEach((el, i) => {
       const phase = t - i * STAGGER;
       const a = phase > 0 && phase < WAVE ? Math.sin((phase / WAVE) * Math.PI) : 0;
@@ -257,7 +270,16 @@ function renderClock() {
 }
 function onTick() { renderClock(); }
 clockEl.addEventListener("click", () => { faceOverride = FACES[(FACES.indexOf(face()) + 1) % FACES.length]; renderClock(); });
-function placeClock(posKey) { const slot = document.getElementById(SLOTS[posKey] || "slot-start-right"); if (slot && clockEl.parentElement !== slot) slot.appendChild(clockEl); }
+function placeClock(posKey) {
+  const slot = document.getElementById(SLOTS[posKey] || "slot-start-right");
+  if (slot && clockEl.parentElement !== slot) slot.appendChild(clockEl);
+  const on = !clockEl.hidden;
+  sepLeftStart.hidden = !(on && posKey === "by start (left)");
+  sepStartRight.hidden = !(on && posKey === "by start (right)");
+  sepInfoLeft.hidden = !(on && posKey === "by info (left)");
+  sepFar.hidden = !(on && posKey === "far right");
+  updateEmptySegments();
+}
 
 // ---- now playing (+ marquee) ---------------------------------------------
 const np = signal(null);
@@ -274,7 +296,7 @@ const vitals = signal(null);
 function pctOf(key) { const v = vitals.value; if (!v) return null; if (key === "ram") return v.ram ? v.ram.percent * 100 : null; return typeof v[key] === "number" ? v[key] * 100 : null; }
 const level = (p) => (p == null ? null : p >= dangerAt ? "danger" : p >= warnAt ? "warning" : null);
 const numText = (key) => { const p = pctOf(key); return p == null ? "–" : Math.round(p) + "%"; };
-function bps(n) { if (n == null) return "–"; if (n >= 1e6) return (n / 1e6).toFixed(1) + "M"; if (n >= 1e3) return Math.round(n / 1e3) + "K"; return Math.round(n) + "B"; }
+function bps(n) { if (n == null) return "–"; if (n >= 1e6) { const m = n / 1e6; return (m >= 100 ? Math.round(m) : m.toFixed(1)) + "M"; } if (n >= 1e3) return Math.round(n / 1e3) + "K"; return Math.round(n) + "B"; }
 function onVitals(v) { vitals.value = v; shared.cpu = typeof v.cpu === "number" ? Math.max(0, Math.min(1, v.cpu)) : 0; }
 
 // ---- notification badges (opt-in) ----------------------------------------
@@ -313,9 +335,30 @@ function updateRunning() {
 // ---- start button ---------------------------------------------------------
 startEl.addEventListener("click", () => { try { hostStart.click(); } catch {} try { dd.request && dd.request("shell.start"); } catch {} });
 function placeStart(placement) {
-  if (placement === "in the dock") { if (startEl.parentElement !== slotDockStart) slotDockStart.appendChild(startEl); }
-  else if (startEl.parentElement !== leftGlass) leftGlass.insertBefore(startEl, slotStartRight);
+  if (placement === "in the dock") slotDockStart.after(startEl);
+  else leftGlass.insertBefore(startEl, hostStart);
+  sepDockStart.hidden = placement !== "in the dock";
+  updateEmptySegments();
 }
+function updateEmptySegments() {
+  const hasStart = leftGlass.contains(startEl);
+  const hasClock = !clockEl.hidden && leftGlass.contains(clockEl);
+  barLeft.hidden = !(hasStart || hasClock);
+}
+
+// ---- dock extras (recycle bin / show desktop) -----------------------------
+let wantRecycle = false, wantDesktop = false;
+function updateExtras() {
+  recycleEl.hidden = !(wantRecycle && recycleId);
+  showdesktopEl.hidden = !wantDesktop;
+  sepExtras.hidden = recycleEl.hidden && showdesktopEl.hidden;
+  refreshMagHosts();
+}
+recycleEl.addEventListener("click", () => { if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e))); });
+showdesktopEl.addEventListener("click", () => {
+  try { if (dd.request) return void dd.request("shell.showDesktop"); } catch {}
+  try { dd.request && dd.request("shell.minimizeAll"); } catch (e) { dd.log("warn", "show desktop unavailable", String(e)); }
+});
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
   lastStartImage = pathVal;
@@ -336,6 +379,12 @@ async function main() {
 
   fields = Array.from(document.querySelectorAll(".field")).map(makeField);
   readPalette();
+
+  // Find the Recycle Bin in the system-apps catalog (for the optional dock button).
+  try {
+    const r = await dd.apps.list();
+    recycleId = ((r && r.apps) || []).find((a) => /recycle/i.test(a.name || a.id || ""))?.id || null;
+  } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
 
   bindParts(clockEl, { time: { textContent: time }, date: { textContent: date } });
   dd.time.onTick(onTick); onTick();
@@ -400,7 +449,11 @@ async function main() {
     rs.setProperty("--v-warn", s.vitalsWarnColor || "#f59e0b");
     rs.setProperty("--v-danger", s.vitalsDangerColor || "#f87171");
     rs.setProperty("--start-scale", ((s.startSize ?? 100) / 100).toFixed(2));
-    rs.setProperty("--edge-pad", (s.edgePadding ?? 14) + "px");
+    rs.setProperty("--edge-pad", (s.edgePadding ?? 25) + "px");
+    rs.setProperty("--spacer", (s.spacing ?? 8) + "px");
+    wantRecycle = s.showRecycleBin === true;
+    wantDesktop = s.showDesktopBtn === true;
+    updateExtras();
 
     // Start button
     startLabel.textContent = s.startLabel || "Start";
@@ -417,9 +470,8 @@ async function main() {
     document.body.classList.toggle("no-magnify", !magnifyOn);
     document.body.classList.toggle("net-inline", String(s.netLayout || "stacked") === "side by side");
 
-    const rposKey = String(s.clockPosition || "by start (right)");
-    placeClock(rposKey);
     clockEl.hidden = s.showClock === false;
+    placeClock(String(s.clockPosition || "by start (right)"));
     document.body.classList.toggle("show-media", s.showMedia !== false);
     document.body.classList.toggle("show-vitals", s.showVitals !== false);
     document.body.classList.toggle("show-net", s.showNet !== false);

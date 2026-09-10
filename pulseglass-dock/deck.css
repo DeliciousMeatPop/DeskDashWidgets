@@ -1,4 +1,4 @@
-/* Aurora Dock deck — a small tabbed control centre (560x360 CSS px). */
+/* Pulseglass Dock deck — a small tabbed control centre (560x360 CSS px). */
 html, body { height: 100%; overflow: hidden; }
 
 #deck { display: block; height: 100%; }
@@ -64,8 +64,10 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .chip { font-size: var(--dd-text-xs, 11px); padding: 3px 8px; border-radius: var(--dd-radius-full); background: var(--dd-surface); border: 1px solid var(--dd-border); }
 
 /* ---- network ---- */
-.net-page { display: flex; flex-direction: column; gap: var(--dd-space-3); }
-.net-graph { flex: 1; width: 100%; border-radius: var(--dd-radius-md); background: var(--dd-surface-transparent); }
+/* Grid rows pin the legend to the bottom; the graph takes the rest and can
+   never push the numbers off the panel. */
+.net-page { display: grid; grid-template-rows: 1fr auto; gap: var(--dd-space-3); min-height: 0; overflow: hidden; }
+.net-graph { width: 100%; min-height: 0; border-radius: var(--dd-radius-md); background: var(--dd-surface-transparent); }
 /* Three equal, centred columns so the numbers never shove each other. */
 .net-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--dd-space-2); flex: none; }
 .lg { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: var(--dd-space-2) 0;

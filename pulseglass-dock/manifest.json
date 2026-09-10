@@ -1,7 +1,7 @@
 {
   "id": "pulseglass-dock",
   "name": "Pulseglass Dock",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "apiVersion": 1,
   "minAppVersion": "0.3.5",
   "description": "Pulseglass Dock is a living glass taskbar for DeskDash that reacts to music and system activity. Inspired by Aurora, rebuilt as a full desktop dock — with magnification, number vitals, a movable clock, a network readout and a now-playing deck.",
@@ -19,7 +19,7 @@
 
     { "key": "reactivity", "type": "select", "label": "Light field",
       "options": ["audio and vitals", "audio", "calm"], "default": "audio and vitals" },
-    { "key": "customField", "type": "boolean", "label": "Custom light-field colours", "default": false },
+    { "key": "customField", "type": "boolean", "label": "Custom light-field colours", "default": true },
     { "key": "fieldColorA", "type": "color", "label": "Light colour 1", "default": "#4ade80",
       "showIf": { "key": "customField", "equals": true } },
     { "key": "fieldColorB", "type": "color", "label": "Light colour 2", "default": "#38bdf8",
@@ -27,28 +27,34 @@
     { "key": "fieldColorC", "type": "color", "label": "Light colour 3", "default": "#a78bfa",
       "showIf": { "key": "customField", "equals": true } },
     { "key": "fieldGlow", "type": "number", "label": "Light-field glow (%)", "min": 0, "max": 250, "default": 100 },
+
     { "key": "runningStyle", "type": "select", "label": "Open apps shown by",
-      "options": ["dots", "colour", "colour + dots"], "default": "dots" },
+      "options": ["dots", "colour", "colour + dots"], "default": "colour + dots" },
     { "key": "dimIdle", "type": "number", "label": "Idle icon dim (%)", "min": 0, "max": 100, "default": 45,
       "showIf": { "key": "runningStyle", "equals": "colour" } },
 
-    { "key": "startLabel", "type": "text", "label": "Start label", "placeholder": "Start", "default": "Start" },
+    { "key": "startLabel", "type": "text", "label": "Start label", "placeholder": "Start", "default": "Pulseglass Dock" },
     { "key": "startImage", "type": "filePath", "label": "Start image (PNG/JPG)", "placeholder": "pick an image", "pick": "file" },
     { "key": "startSize", "type": "number", "label": "Start size (%)", "min": 60, "max": 180, "default": 100 },
     { "key": "startPlacement", "type": "select", "label": "Start position", "options": ["left edge", "in the dock"], "default": "left edge" },
 
+    { "key": "showRecycleBin", "type": "boolean", "label": "Recycle Bin in the dock", "default": false },
+    { "key": "showDesktopBtn", "type": "boolean", "label": "Show-desktop button in the dock", "default": false },
+
     { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
-    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 60 },
-    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 2 },
+    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 100 },
+    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 1 },
     { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
     { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 5 },
+
+    { "key": "spacing", "type": "number", "label": "Spacer margin (px)", "min": 0, "max": 40, "default": 8 },
 
     { "key": "showClock", "type": "boolean", "label": "Clock", "default": true },
     { "key": "clockFace", "type": "select", "label": "Clock style",
       "options": ["standard", "large", "analog", "worded", "dual"], "default": "standard",
       "showIf": { "key": "showClock", "equals": true } },
     { "key": "clockPosition", "type": "select", "label": "Clock position",
-      "options": ["by start (right)", "by start (left)", "by info (left)", "far right"], "default": "by start (right)",
+      "options": ["by start (right)", "by start (left)", "by info (left)", "far right"], "default": "far right",
       "showIf": { "key": "showClock", "equals": true } },
     { "key": "format24h", "type": "boolean", "label": "24-hour clock", "default": false,
       "showIf": { "key": "showClock", "equals": true } },
@@ -63,7 +69,7 @@
     { "key": "showMedia", "type": "boolean", "label": "Now playing chip", "default": true },
 
     { "key": "showVitals", "type": "boolean", "label": "Vitals (CPU / RAM / GPU)", "default": true },
-    { "key": "vitalsWarnAt", "type": "number", "label": "Warn above (%)", "min": 1, "max": 100, "default": 50,
+    { "key": "vitalsWarnAt", "type": "number", "label": "Warn above (%)", "min": 1, "max": 100, "default": 65,
       "showIf": { "key": "showVitals", "equals": true } },
     { "key": "vitalsDangerAt", "type": "number", "label": "Danger above (%)", "min": 1, "max": 100, "default": 90,
       "showIf": { "key": "showVitals", "equals": true } },
@@ -75,10 +81,10 @@
       "showIf": { "key": "showVitals", "equals": true } },
 
     { "key": "showNet", "type": "boolean", "label": "Network readout", "default": true },
-    { "key": "netLayout", "type": "select", "label": "Network layout", "options": ["stacked", "side by side"], "default": "stacked",
+    { "key": "netLayout", "type": "select", "label": "Network layout", "options": ["stacked", "side by side"], "default": "side by side",
       "showIf": { "key": "showNet", "equals": true } },
 
-    { "key": "edgePadding", "type": "number", "label": "Dock click margin (px)", "min": 0, "max": 80, "default": 14 },
+    { "key": "edgePadding", "type": "number", "label": "Dock click margin (px)", "min": 0, "max": 80, "default": 25 },
 
     { "key": "badges", "type": "boolean", "label": "Notification badges  (unstable)", "default": false }
   ],
@@ -89,6 +95,7 @@
     "system": true,
     "systemControls": true,
     "media": true,
-    "mediaControls": true
+    "mediaControls": true,
+    "apps": true
   }
 }
