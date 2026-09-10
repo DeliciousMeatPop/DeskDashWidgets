@@ -1,0 +1,50 @@
+{
+  "id": "shortcut-drawer",
+  "name": "Shortcut Drawer",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "minAppVersion": "0.3.5",
+  "description": "A hand-picked launcher: add individual apps, games, desktop shortcuts, exes, scripts and folder items directly (folders you point at are just the source to pick from), grouped by type with a most-used section and a collapsible handle.",
+  "author": "you",
+  "interactive": true,
+  "permissions": {
+    "storage": true,
+    "desktop": true,
+    "folders": true,
+    "apps": true,
+    "games": true
+  },
+  "settings": [
+    { "key": "title", "type": "text", "label": "Title", "default": "Launch" },
+    { "key": "mode", "type": "select", "label": "Folder/desktop items", "default": "curated", "options": ["curated", "all"] },
+
+    { "key": "showGames", "type": "boolean", "label": "Installed games", "default": true },
+    { "key": "showApps", "type": "boolean", "label": "System apps (Explorer, Terminal…)", "default": false },
+    { "key": "includeDesktop", "type": "boolean", "label": "Desktop items", "default": true },
+    { "key": "deskPath", "type": "filePath", "label": "Desktop source (blank = Desktop icons)", "placeholder": "leave blank for Desktop", "pick": "folder",
+      "showIf": { "key": "includeDesktop", "equals": true } },
+
+    { "key": "folder1", "type": "filePath", "label": "Extra folder 1", "placeholder": "pick a folder", "pick": "folder" },
+    { "key": "label1", "type": "text", "label": "Folder 1 name", "placeholder": "e.g. Games", "default": "" },
+    { "key": "folder2", "type": "filePath", "label": "Extra folder 2", "placeholder": "pick a folder", "pick": "folder" },
+    { "key": "label2", "type": "text", "label": "Folder 2 name", "placeholder": "e.g. Tools", "default": "" },
+    { "key": "folder3", "type": "filePath", "label": "Extra folder 3", "placeholder": "pick a folder", "pick": "folder" },
+    { "key": "label3", "type": "text", "label": "Folder 3 name", "placeholder": "e.g. Scripts", "default": "" },
+
+    { "key": "groupOrder", "type": "select", "label": "Group order",
+      "options": ["apps first", "folders first", "most used first"], "default": "apps first" },
+    { "key": "showFrequent", "type": "boolean", "label": "Most-used section", "default": true },
+    { "key": "showHeaders", "type": "boolean", "label": "Section headers", "default": true },
+
+    { "key": "showLabels", "type": "boolean", "label": "Show labels", "default": true },
+    { "key": "iconSize", "type": "select", "label": "Icon size", "default": "medium", "options": ["small", "medium", "large"] },
+
+    { "key": "collapsible", "type": "boolean", "label": "Collapsible", "default": true },
+    { "key": "autoCollapse", "type": "boolean", "label": "Collapse after launch", "default": false,
+      "showIf": { "key": "collapsible", "equals": true } },
+    { "key": "collapseTo", "type": "select", "label": "Collapse toward", "default": "top", "options": ["top", "bottom", "left", "right"] },
+    "panelStyle"
+  ],
+  "defaultSize": { "w": 6, "h": 6 },
+  "minSize": { "w": 3, "h": 2 }
+}

@@ -14,6 +14,8 @@ const prevBtn = document.getElementById("prevBtn");
 const playBtn = document.getElementById("playBtn");
 const nextBtn = document.getElementById("nextBtn");
 const chipsEl = document.getElementById("chips");
+const titleEl = document.querySelector(".deck__title");
+const marqueeEl = document.querySelector(".deck__marquee");
 
 const np = signal(null);
 const vitals = signal(null);
@@ -86,10 +88,21 @@ function bps(n) {
 function renderChips() {
   const v = vitals.value; if (!v) return;
   const c = [];
-  if (v.wifi) c.push(`📶 ${v.wifi.ssid || "Wi-Fi"}`);
-  if (v.ram) c.push(`${Math.round(v.ram.usedMb / 1024)}/${Math.round(v.ram.totalMb / 1024)} GB`);
+  if (v.ram) c.push(`RAM ${Math.round(v.ram.usedMb / 1024)} / ${Math.round(v.ram.totalMb / 1024)} GB`);
   if (v.net) c.push(`↓ ${bps(v.net.rxBps)}`, `↑ ${bps(v.net.txBps)}`);
+  if (v.wifi) c.push(`📶 ${v.wifi.ssid || "Wi-Fi"}${v.wifi.signal != null ? " · " + v.wifi.signal + "%" : ""}`);
+  if (v.battery) c.push(`${v.battery.charging ? "⚡ Charging" : "🔋 Battery"} ${Math.round(v.battery.percent)}%`);
+  if (v.disk != null) c.push(`Disk ${Math.round(v.disk * 100)}%`);
+  if (Array.isArray(v.drives)) for (const d of v.drives) c.push(`${d.label || d.mount || "Drive"} ${Math.round(d.percent != null ? d.percent : (d.usedMb / d.totalMb) * 100)}%`);
+  if (v.uptimeSec != null) { const hrs = Math.floor(v.uptimeSec / 3600); c.push(`Up ${hrs >= 24 ? Math.floor(hrs / 24) + "d " + (hrs % 24) + "h" : hrs + "h"}`); }
   chipsEl.replaceChildren(...c.map((t) => { const s = document.createElement("span"); s.className = "chip"; s.textContent = t; return s; }));
+}
+
+function updateMarquee() {
+  if (!titleEl || !marqueeEl) return;
+  const over = titleEl.scrollWidth - marqueeEl.clientWidth;
+  if (over > 4) { titleEl.classList.add("scroll"); titleEl.style.setProperty("--marq", -over - 8 + "px"); titleEl.style.setProperty("--marq-dur", Math.max(6, (over + 8) / 26) + "s"); }
+  else { titleEl.classList.remove("scroll"); titleEl.style.removeProperty("--marq"); }
 }
 
 // ---- network graph --------------------------------------------------------
@@ -126,40 +139,16 @@ function setupNetGraph() {
   addEventListener("resize", draw);
 }
 
-// ---- launcher -------------------------------------------------------------
-function setupLauncher() {
-  const grid = document.getElementById("launch-grid");
-  let raw = "";
-  try { raw = (dd.settings.get() || {}).launcherItems || ""; } catch {}
-  const items = raw.split(",").map((s) => s.trim()).filter(Boolean).map((s) => {
-    const [name, target] = s.split("|").map((x) => (x || "").trim());
-    return { name: name || target, target: target || name };
-  });
-  if (!items.length) { grid.innerHTML = `<p class="dd-empty">Add shortcuts in Taskbar settings → Launcher shortcuts.</p>`; return; }
-  for (const it of items) {
-    const tile = document.createElement("button");
-    tile.className = "tile";
-    tile.innerHTML = `<span class="tile__ico">${(it.name[0] || "?").toUpperCase()}</span><span class="tile__name"></span>`;
-    tile.querySelector(".tile__name").textContent = it.name;
-    tile.addEventListener("click", () => {
-      const t = it.target;
-      if (/^https?:\/\//i.test(t)) dd.links.open(t).catch(warn("links.open"));
-      else { try { dd.request && dd.request("shell.run", { target: t }); } catch (e) { dd.log("warn", "shell.run unavailable", String(e)); } }
-    });
-    grid.appendChild(tile);
-  }
-}
-
 // ---- tabs -----------------------------------------------------------------
 function setupTabs() {
   const tabs = Array.from(document.querySelectorAll(".tab"));
-  const pages = { np: "page-np", sys: "page-sys", net: "page-net", apps: "page-apps" };
+  const pages = { np: "page-np", sys: "page-sys", net: "page-net" };
   let active = "np";
-  try { active = localStorage.getItem("aurora-dock:tab") || "np"; } catch {}
+  try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch {}
   function show(name) {
     if (!pages[name]) name = "np";
     active = name;
-    try { localStorage.setItem("aurora-dock:tab", name); } catch {}
+    try { localStorage.setItem("pulseglass-dock:tab", name); } catch {}
     for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.tab === name));
     for (const [k, id] of Object.entries(pages)) document.getElementById(id).hidden = k !== name;
   }
@@ -183,6 +172,7 @@ async function main() {
     const art = np.value && np.value.art;
     if (art) { if (artEl.getAttribute("src") !== art) artEl.src = art; artEl.hidden = false; }
     else { artEl.removeAttribute("src"); artEl.hidden = true; }
+    requestAnimationFrame(updateMarquee);
   });
   effect(() => {
     const snap = np.value;
@@ -220,8 +210,8 @@ async function main() {
   if (status) vitals.value = status;
 
   setupNetGraph();
-  setupLauncher();
   setupTabs();
+  addEventListener("resize", updateMarquee);
 }
 
-main().catch((err) => dd.log("error", "aurora dock deck boot failed", String(err)));
+main().catch((err) => dd.log("error", "pulseglass dock deck boot failed", String(err)));
