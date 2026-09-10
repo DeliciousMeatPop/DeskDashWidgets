@@ -216,25 +216,54 @@ async function setupWeather(st) {
   } catch (e) { dd.log("warn", "weather failed", (e && e.code) || String(e)); nowEl.hidden = true; emptyEl.textContent = "Weather unavailable — check the location name."; emptyEl.hidden = false; }
 }
 
-// ---- power menu (right-click the dock) ------------------------------------
-async function setupMenu() {
+// ---- tools & power sheet (opened by the dock's Tools button) ---------------
+async function setupMenu(st) {
   document.body.classList.add("menu-mode");
   document.getElementById("tabs").hidden = true;
   for (const id of ["page-np", "page-sys", "page-drives", "page-net", "page-weather"]) { const el = document.getElementById(id); if (el) el.hidden = true; }
   const menu = document.getElementById("page-menu"); menu.hidden = false;
+  const confirmDestructive = !st || st.powerConfirm !== false;
+  const close = () => { try { dd.popout && dd.popout.close && dd.popout.close(); } catch {} };
+
   let apps = [];
   try { apps = (await dd.apps.list()).apps || []; } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
   const find = (re) => (apps.find((a) => re.test(a.name || a.id || "")) || {}).id;
-  const ids = { task: find(/task ?manager/i), terminal: find(/terminal/i), explorer: find(/explorer|files?\b/i), settings: find(/^settings|windows settings/i), control: find(/control panel/i) };
-  const close = () => { try { dd.popout && dd.popout.close && dd.popout.close(); } catch {} };
+  const ids = { task: find(/task ?manager/i), terminal: find(/terminal|command prompt|powershell/i), settings: find(/^settings|windows settings/i), control: find(/control panel/i) };
   for (const btn of menu.querySelectorAll(".menu-item[data-app]")) {
     const id = ids[btn.dataset.app];
     if (!id) { btn.disabled = true; continue; }
     btn.addEventListener("click", () => { dd.apps.launch(id).catch((e) => dd.log("warn", "launch", (e && e.code) || String(e))); close(); });
   }
-  const startBtn = document.getElementById("menu-start");
-  startBtn.addEventListener("click", () => { try { dd.bar.openStartMenu(); } catch {} close(); });
+
+  // File Explorer → the user's *default* file handler (Directory Opus etc.) via
+  // ShellExecute on "This PC", not explorer.exe. Falls back to the app catalog.
+  document.getElementById("menu-explorer").addEventListener("click", () => {
+    dd.links.open("shell:MyComputerFolder").catch((e) => {
+      dd.log("warn", "open files via shell failed, using app", (e && e.code) || String(e));
+      const id = find(/explorer|files?\b/i); if (id) dd.apps.launch(id).catch(() => {});
+    });
+    close();
+  });
+
+  document.getElementById("menu-start").addEventListener("click", () => { try { dd.bar.openStartMenu(); } catch {} close(); });
   document.getElementById("menu-taskbar").addEventListener("click", () => { try { dd.settings.open({}); } catch {} close(); });
+
+  // Power actions via dd.power.run(). Sleep hides when the machine can't sleep.
+  let caps = null;
+  try { if (dd.power && dd.power.capabilities) caps = await dd.power.capabilities(); } catch (e) { dd.log("warn", "power caps failed", (e && e.code) || String(e)); }
+  const LABEL = { lock: "Lock", signOut: "Sign out", sleep: "Sleep", restart: "Restart", shutdown: "Shut down" };
+  const NEEDS_CONFIRM = new Set(["signOut", "restart", "shutdown"]);
+  const canPower = !!(dd.power && dd.power.run);
+  for (const btn of menu.querySelectorAll(".menu-pw[data-power]")) {
+    const action = btn.dataset.power;
+    if (action === "sleep" && caps && caps.sleep === false) { btn.hidden = true; continue; }
+    if (!canPower) { btn.disabled = true; continue; }
+    btn.addEventListener("click", () => {
+      if (confirmDestructive && NEEDS_CONFIRM.has(action) && !window.confirm(`${LABEL[action]} now?`)) return;
+      dd.power.run(action).catch((e) => dd.log("warn", "power " + action, (e && e.code) || String(e)));
+      close();
+    });
+  }
 }
 
 // ---- tabs -----------------------------------------------------------------
@@ -258,7 +287,12 @@ function setupTabs(st, initialTab) {
 
 async function main() {
   const ctx = await dd.ready;
-  if (ctx && ctx.popout && ctx.popout.data && ctx.popout.data.view === "menu") { await setupMenu(); return; }
+  if (ctx && ctx.popout && ctx.popout.data && ctx.popout.data.view === "menu") {
+    let st = (ctx && ctx.settings) || null;
+    if (!st) { try { st = dd.settings.get() || {}; } catch { st = {}; } }
+    await setupMenu(st);
+    return;
+  }
   const deckSettings = (ctx && ctx.settings) || (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
   warnAt = deckSettings.vitalsWarnAt ?? 50;
   dangerAt = deckSettings.vitalsDangerAt ?? 90;
