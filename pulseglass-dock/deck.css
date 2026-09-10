@@ -118,6 +118,8 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 /* ---- tools & power sheet (opened by the dock's Tools button) ---- */
 body.menu-mode #deck::part(surface) { padding: var(--dd-space-1); gap: 2px; overflow-y: auto; }
 .menu-page { display: flex; flex-direction: column; gap: 2px; }
+.menu-group { display: flex; flex-direction: column; gap: 2px; }
+.menu-group[hidden] { display: none; }
 .menu-head { font-size: var(--dd-text-xs, 11px); text-transform: uppercase; letter-spacing: .06em; color: var(--dd-text-muted); padding: 4px 12px 2px; }
 .menu-item { appearance: none; border: 0; background: transparent; color: var(--dd-text); text-align: left; padding: 9px 12px; border-radius: var(--dd-radius-md); cursor: pointer; font: inherit; font-size: var(--dd-text-sm, 13px); }
 .menu-item:hover:not([disabled]) { background: var(--dd-surface); }
@@ -129,4 +131,6 @@ body.menu-mode #deck::part(surface) { padding: var(--dd-space-1); gap: 2px; over
 .menu-pw:hover:not([disabled]) { background: var(--dd-surface); border-color: var(--dd-accent); }
 .menu-pw[disabled] { opacity: .4; cursor: default; }
 .menu-pw[hidden] { display: none; }
+/* Shut down sits full-width at the bottom as the clear, risky action. */
+.menu-pw.danger { grid-column: 1 / -1; }
 .menu-pw.danger:hover:not([disabled]) { border-color: var(--dd-danger, #f87171); color: var(--dd-danger, #f87171); }

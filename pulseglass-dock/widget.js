@@ -29,6 +29,7 @@ const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
 const recycleEl = document.getElementById("recycle");
 const toolsEl = document.getElementById("tools");
+const powerEl = document.getElementById("power");
 const sepDockStart = document.getElementById("sep-dock-start");
 const sepDockEnd = document.getElementById("sep-dock-end");
 const sepLeftStart = document.getElementById("sep-left-start");
@@ -191,12 +192,12 @@ function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = f
 let magHosts = [];
 // Every dock item (start/recycle/now-playing + app icons), for magnify hover.
 function allDockItems() {
-  return [startEl, recycleEl, toolsEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+  return [startEl, recycleEl, toolsEl, powerEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // Every element breathing can touch (readouts included), for reset.
 function allBreathable() {
-  return [startEl, recycleEl, toolsEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
+  return [startEl, recycleEl, toolsEl, powerEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
     .filter(Boolean).concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // The subset breathing animates, per the per-item breathe toggles.
@@ -208,6 +209,7 @@ function breatheHosts() {
   if (bMedia && deckEl) out.push(deckEl);
   if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
   if (bTools && !toolsEl.hidden) out.push(toolsEl);
+  if (bTools && !powerEl.hidden) out.push(powerEl);
   if (bVitals) out.push(vitalsEl);
   if (bNet) out.push(netEl);
   if (bWeather && !weatherEl.hidden) out.push(weatherEl);
@@ -225,6 +227,7 @@ function refreshMagHosts() {
   if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
   if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
   if (magTools && !toolsEl.hidden) list.push(toolsEl);
+  if (magTools && !powerEl.hidden) list.push(powerEl);
   magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -457,12 +460,13 @@ function updateEmptySegments() {
   const hasClock = !clockEl.hidden && leftGlass.contains(clockEl);
   const hasRecycle = !recycleEl.hidden && leftGlass.contains(recycleEl);
   const hasTools = !toolsEl.hidden && leftGlass.contains(toolsEl);
-  barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools);
+  const hasPower = !powerEl.hidden && leftGlass.contains(powerEl);
+  barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools || hasPower);
 }
 
 // ---- recycle bin -----------------------------------------------------------
 const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
-let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null, recycleOpenMode = "default handler";
+let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
 function placeRecycle() {
   const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
   if (slot) slot.appendChild(recycleEl);
@@ -494,23 +498,20 @@ function recycleViaExplorer() {
   else if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(() => {});
 }
 recycleEl.addEventListener("click", () => {
-  if (recycleOpenMode === "file explorer") { recycleViaExplorer(); return; }
-  // Default handler: double-click the desktop bin first (DOpus takes it if it's
-  // the default handler), then ShellExecute the shell folder, then Explorer.
+  // Open the Recycle Bin the most reliable way available: the desktop's bin
+  // item, else the shell folder, else the system-apps entry.
   if (recycleItem) {
-    dd.log("info", "recycle: folders.open (desktop item)");
     dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => {
       dd.log("warn", "recycle folders.open failed, trying shell:", (e && e.code) || String(e));
       dd.links.open("shell:RecycleBinFolder").catch(recycleViaExplorer);
     });
     return;
   }
-  dd.log("info", "recycle: links.open shell: (no desktop item)");
   dd.links.open("shell:RecycleBinFolder").catch((e) => { dd.log("warn", "recycle links.open failed", (e && e.code) || String(e)); recycleViaExplorer(); });
 });
-// ---- tools & power button --------------------------------------------------
-// Shares the recycle bin's slot map (the same four dock anchors).
-let wantTools = true, toolsPos = "by start";
+// ---- tools + power buttons -------------------------------------------------
+// Both share the recycle bin's slot map (the same four dock anchors).
+let wantTools = true, toolsPos = "by start", wantPower = true, powerPos = "by start";
 function placeTools() {
   const slot = document.getElementById(RECYCLE_SLOTS[toolsPos] || "slot-start-right");
   if (slot) slot.appendChild(toolsEl);
@@ -518,10 +519,21 @@ function placeTools() {
   refreshMagHosts();
   updateEmptySegments();
 }
-// Opens the deck popout in its "menu" view — the tools + power sheet.
+function placePower() {
+  const slot = document.getElementById(RECYCLE_SLOTS[powerPos] || "slot-start-right");
+  if (slot) slot.appendChild(powerEl);
+  powerEl.hidden = !wantPower;
+  refreshMagHosts();
+  updateEmptySegments();
+}
+// Each opens its own compact sheet in the deck popout, so neither overflows.
 toolsEl.addEventListener("click", () => {
-  try { dd.popout.open({ size: { w: 236, h: 388 }, anchor: toolsEl, prefer: "up", data: { view: "menu" } }); }
-  catch (err) { dd.log("warn", "tools menu popout failed", (err && err.code) || String(err)); }
+  try { dd.popout.open({ size: { w: 232, h: 258 }, anchor: toolsEl, prefer: "up", data: { view: "tools" } }); }
+  catch (err) { dd.log("warn", "tools popout failed", (err && err.code) || String(err)); }
+});
+powerEl.addEventListener("click", () => {
+  try { dd.popout.open({ size: { w: 236, h: 214 }, anchor: powerEl, prefer: "up", data: { view: "power" } }); }
+  catch (err) { dd.log("warn", "power popout failed", (err && err.code) || String(err)); }
 });
 
 async function applyStartImage(pathVal) {
@@ -627,11 +639,13 @@ async function main() {
     rs.setProperty("--spacer", (s.spacing ?? 8) + "px");
     wantRecycle = s.showRecycleBin === true;
     recyclePos = String(s.recyclePosition || "in the dock");
-    recycleOpenMode = String(s.recycleOpen || "default handler");
     placeRecycle();
     wantTools = s.showTools !== false;
     toolsPos = String(s.toolsPosition || "by start");
     placeTools();
+    wantPower = s.showPower !== false;
+    powerPos = String(s.powerPosition || "by start");
+    placePower();
 
     // Start button
     startLabel.textContent = s.startLabel || "Start";
