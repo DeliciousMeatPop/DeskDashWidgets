@@ -45,9 +45,13 @@
     { "key": "desktopSrc", "type": "filePath", "label": "Desktop source (blank = Desktop icons)", "placeholder": "leave blank", "pick": "folder",
       "showIf": { "key": "showRecycleBin", "equals": true } },
 
-    { "key": "magnify", "type": "boolean", "label": "Dock magnification", "default": true },
-    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 100 },
-    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 1 },
+    { "key": "magnify", "type": "boolean", "label": "Magnification (master)", "default": true },
+    { "key": "magnifyApps", "type": "boolean", "label": "· magnify app icons", "default": true, "showIf": { "key": "magnify", "equals": true } },
+    { "key": "magnifyStart", "type": "boolean", "label": "· magnify Start", "default": true, "showIf": { "key": "magnify", "equals": true } },
+    { "key": "magnifyMedia", "type": "boolean", "label": "· magnify Now-playing", "default": true, "showIf": { "key": "magnify", "equals": true } },
+    { "key": "magnifyRecycle", "type": "boolean", "label": "· magnify Recycle Bin", "default": true, "showIf": { "key": "magnify", "equals": true } },
+    { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 100, "showIf": { "key": "magnify", "equals": true } },
+    { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 1, "showIf": { "key": "magnify", "equals": true } },
     { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
     { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 5 },
 
@@ -71,6 +75,10 @@
       "showIf": { "key": "clockFace", "equals": "dual" } },
 
     { "key": "showMedia", "type": "boolean", "label": "Now playing chip", "default": true },
+    { "key": "tabSystem", "type": "boolean", "label": "Now-playing: System tab", "default": true },
+    { "key": "tabDrives", "type": "boolean", "label": "Now-playing: Drives tab", "default": true },
+    { "key": "tabNetwork", "type": "boolean", "label": "Now-playing: Network tab", "default": true },
+    { "key": "tabWeather", "type": "boolean", "label": "Now-playing: Weather tab", "default": true },
 
     { "key": "showVitals", "type": "boolean", "label": "Vitals (CPU / RAM / GPU)", "default": true },
     { "key": "vitalsWarnAt", "type": "number", "label": "Warn above (%)", "min": 1, "max": 100, "default": 65,
@@ -90,6 +98,7 @@
 
     { "key": "weatherPlace", "type": "text", "label": "Weather location (city)", "placeholder": "London", "default": "" },
     { "key": "weatherUnits", "type": "select", "label": "Weather units", "options": ["fahrenheit", "celsius"], "default": "fahrenheit" },
+    { "key": "weatherInterval", "type": "number", "label": "Weather update (seconds)", "min": 1, "max": 3600, "default": 900 },
     { "key": "showWeatherChip", "type": "boolean", "label": "Weather in the taskbar", "default": false },
 
     { "key": "edgePadding", "type": "number", "label": "Dock click margin (px)", "min": 0, "max": 80, "default": 25 },
@@ -108,6 +117,6 @@
     "desktop": true,
     "folders": true,
     "storage": true,
-    "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"] }
+    "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"], "rateLimit": 120 }
   }
 }
