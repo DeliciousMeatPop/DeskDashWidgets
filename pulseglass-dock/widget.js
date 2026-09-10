@@ -21,7 +21,6 @@ const startImg = document.getElementById("start-img");
 const startLogo = document.getElementById("start-logo");
 const startLabel = document.getElementById("start-label");
 const hostStart = document.getElementById("host-start");
-const badgesEl = document.getElementById("badges");
 const centerCanvas = document.querySelector("#bar-center .field");
 const leftGlass = startEl.parentElement;
 const barLeft = document.getElementById("bar-left");
@@ -51,22 +50,11 @@ const LAYERS = [
 let store = null, lowMotion = false;
 let reactivity = "audio and vitals";
 let format24 = false, clockFaceName = "standard", clockSeconds = false, clockDate = true, secondaryTz = "", faceOverride = null;
-let magnifyOn = true, magStrength = 0.6, magReach = 2;
-let magApps = true, magStart = true, magMedia = true, magRecycle = true, magTools = true;
-let breatheOn = true, breatheSecs = 5;
-let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true, bTools = true;
-let badgesOn = false;
+let magnifyMode = "everything", magStrength = 0.6, magReach = 2; // "everything" | "apps only" | "off"
+let breatheMode = "everything", breatheSecs = 5;                 // "everything" | "icons only" | "off"
 let warnAt = 50, dangerAt = 90;
 let netMode = "dyn-bytes"; // "mbs" | "mbps" | "dyn-bytes" | "dyn-bits"
-let lastStartImage = undefined;
-let customField = false, fieldColors = ["#4ade80", "#38bdf8", "#a78bfa"], glowMul = 1;
-
-function hexRgb(hex) {
-  const h = String(hex).replace("#", "");
-  const s = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
-  const n = parseInt(s.slice(0, 6), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-}
+const glowMul = 1; // fixed; the light-field glow follows the theme tokens
 
 const shared = { bands: new Float32Array(BANDS), lastAudioAt: 0, cpu: 0, colors: [], accent: [255, 255, 255] };
 let raf = 0, lastDrawAt = 0;
@@ -79,7 +67,6 @@ function rgbOf(g, name) {
   const m = norm.match(/[\d.]+/g) || []; return [Number(m[0]) || 0, Number(m[1]) || 0, Number(m[2]) || 0];
 }
 function readPalette() {
-  if (customField) { shared.colors = fieldColors.map(hexRgb); shared.accent = hexRgb(fieldColors[0]); return; }
   const g = (fields[0] ? fields[0].g : centerCanvas.getContext("2d"));
   shared.colors = LAYERS.map((l) => rgbOf(g, l.token));
   shared.accent = rgbOf(g, "--dd-accent");
@@ -200,37 +187,37 @@ function allBreathable() {
   return [startEl, recycleEl, toolsEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
     .filter(Boolean).concat(Array.from(apps.querySelectorAll("dd-app")));
 }
-// The subset breathing animates, per the per-item breathe toggles.
+// The subset breathing animates. "icons only" is the app icons + dock buttons;
+// "everything" adds the readouts (vitals, network, clock, weather, tray).
 function breatheHosts() {
-  const out = [];
+  if (breatheMode === "off") return [];
   const deckEl = document.getElementById("deck"), trayEl = document.querySelector(".tray");
-  if (bApps) out.push(...Array.from(apps.querySelectorAll("dd-app")));
-  if (bStart) out.push(startEl);
-  if (bMedia && deckEl) out.push(deckEl);
-  if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
-  if (bTools && !toolsEl.hidden) out.push(toolsEl);
-  if (bVitals) out.push(vitalsEl);
-  if (bNet) out.push(netEl);
-  if (bWeather && !weatherEl.hidden) out.push(weatherEl);
-  if (bClock && !clockEl.hidden) out.push(clockEl);
-  if (bTray && trayEl) out.push(trayEl);
-  return out.filter(Boolean);
+  const out = [...Array.from(apps.querySelectorAll("dd-app")), startEl, deckEl, recycleEl, toolsEl];
+  if (breatheMode === "everything") {
+    out.push(vitalsEl, netEl);
+    if (!weatherEl.hidden) out.push(weatherEl);
+    if (!clockEl.hidden) out.push(clockEl);
+    if (trayEl) out.push(trayEl);
+  }
+  return out.filter((el) => el && !el.hidden);
 }
-// Only the items whose per-item magnify toggle is on (and the master is on).
+// The items magnification tracks. "apps only" is just the app icons;
+// "everything" adds Start, the now-playing chip, Recycle and Tools.
 function refreshMagHosts() {
-  const list = [];
-  if (!magnifyOn) { magHosts = []; return; }
+  if (magnifyMode === "off") { magHosts = []; return; }
   const deckEl = document.getElementById("deck");
-  if (magApps) list.push(...Array.from(apps.querySelectorAll("dd-app")));
-  if (magStart && !startEl.hidden) list.push(startEl);
-  if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
-  if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
-  if (magTools && !toolsEl.hidden) list.push(toolsEl);
+  const list = [...Array.from(apps.querySelectorAll("dd-app"))];
+  if (magnifyMode === "everything") {
+    if (!startEl.hidden) list.push(startEl);
+    if (deckEl && !deckEl.hidden) list.push(deckEl);
+    if (!recycleEl.hidden) list.push(recycleEl);
+    if (!toolsEl.hidden) list.push(toolsEl);
+  }
   magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
 function magnify(px) {
-  if (!magnifyOn) return resetMag();
+  if (magnifyMode === "off") return resetMag();
   const reach = Math.max(1, magReach);
   for (const el of magHosts) {
     const r = el.getBoundingClientRect(); if (!r.width) continue;
@@ -243,10 +230,10 @@ function resetMag() { for (const el of magHosts) { el.style.removeProperty("--ma
 
 // ---- breathing pulse (JS-driven, shares the magnify channel) --------------
 let breatheTimer = null, breatheRAF = 0;
-const BREATHE_AMP = 0.12, BREATHE_DUR = 2200, WAVE = 0.5, STAGGER = 0.06;
+const BREATHE_AMP = 0.12, PULSE_MS = 1300; // one item's up-and-down pulse
 function scheduleBreathe() {
   if (breatheTimer) { clearInterval(breatheTimer); breatheTimer = null; }
-  if (!breatheOn || !breatheSecs || lowMotion) return;
+  if (breatheMode === "off" || !breatheSecs || lowMotion) return;
   breatheTimer = setInterval(runBreathe, breatheSecs * 1000);
 }
 // Breathing resets every dock item (it runs on all of them, not just the
@@ -254,17 +241,22 @@ function scheduleBreathe() {
 function endBreathe() { allBreathable().forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
 function runBreathe() {
   if (document.hidden || hoverActive) return;
-  const items = breatheHosts(), start = performance.now();
+  const items = breatheHosts(); if (!items.length) return;
+  // Stagger in real ms and run until the LAST item finishes its pulse, so every
+  // item — including the ones far down the strip (clock, weather, tray) — gets
+  // a full breath. (The old normalised stagger ran out before they started.)
+  const step = Math.min(90, 1800 / items.length);
+  const total = PULSE_MS + (items.length - 1) * step, start = performance.now();
   cancelAnimationFrame(breatheRAF);
   document.body.classList.add("breathing"); // pulses the start words (CSS)
   const tick = (now) => {
     if (hoverActive) return endBreathe(); // hover takes the channel
-    const t = (now - start) / BREATHE_DUR;
-    if (t >= 1) return endBreathe();
-    items.forEach((el, i) => {
-      const phase = t - i * STAGGER;
-      const a = phase > 0 && phase < WAVE ? Math.sin((phase / WAVE) * Math.PI) : 0;
-      setVars(el, 1 + BREATHE_AMP * a, BREATHE_AMP * a * 14);
+    const el = now - start;
+    if (el >= total) return endBreathe();
+    items.forEach((node, i) => {
+      const local = el - i * step;
+      const a = local > 0 && local < PULSE_MS ? Math.sin((local / PULSE_MS) * Math.PI) : 0;
+      setVars(node, 1 + BREATHE_AMP * a, BREATHE_AMP * a * 14);
     });
     breatheRAF = requestAnimationFrame(tick);
   };
@@ -382,33 +374,6 @@ function onVitals(v) {
   if (!loggedNet && v && v.net) { loggedNet = true; dd.log("info", "net sample", JSON.stringify(v.net)); }
 }
 
-// ---- notification badges (opt-in) ----------------------------------------
-const UNREAD = /(?:^|\s)\((\d+)\+?\)|\b(\d+)\s+(?:new|unread|message)/i;
-function unreadOf(win) { const t = (win.title || win.name || win.caption || "").toString(); const m = t.match(UNREAD); return m ? parseInt(m[1] || m[2], 10) || 0 : 0; }
-function refreshBadges() {
-  if (!badgesEl) return;
-  if (!badgesOn || !store) { if (badgesEl.childElementCount) badgesEl.replaceChildren(); return; }
-  const center = fields.find((f) => f.isCenter); if (!center) return;
-  const box = center.canvas.getBoundingClientRect();
-  const wanted = new Map();
-  for (const e of store.entries.peek()) {
-    let count = 0; for (const w of e.wins || []) count = Math.max(count, unreadOf(w));
-    if (!count) continue;
-    const el = apps.appFor && apps.appFor(e.key); if (!el) continue;
-    const r = el.getBoundingClientRect();
-    wanted.set(e.key, { count, x: r.left + r.width - box.left, y: r.top - box.top });
-  }
-  const keep = new Set();
-  for (const [key, b] of wanted) {
-    keep.add(key);
-    let node = badgesEl.querySelector(`[data-key="${CSS.escape(key)}"]`);
-    if (!node) { node = document.createElement("span"); node.className = "badge"; node.dataset.key = key; badgesEl.appendChild(node); }
-    const txt = b.count > 99 ? "99+" : String(b.count);
-    if (node.textContent !== txt) { node.textContent = txt; node.classList.remove("pop"); void node.offsetWidth; node.classList.add("pop"); }
-    node.style.transform = `translate(${b.x - 8}px, ${b.y - 2}px)`;
-  }
-  for (const node of [...badgesEl.children]) if (!keep.has(node.dataset.key)) node.remove();
-}
 
 // ---- weather (taskbar chip, via dd.http + open-meteo) ---------------------
 let weatherPlace = "", weatherUnits = "fahrenheit", showWeatherChip = false, weatherSecs = 900;
@@ -516,7 +481,7 @@ function updateDockSeps() {
 // ---- recycle bin -----------------------------------------------------------
 const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "left edge": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
 const sepRecycleLead = mkSep(), sepToolsLead = mkSep();
-let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
+let wantRecycle = false, recyclePos = "in the dock";
 function placeRecycle() {
   const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
   if (slot) { slot.appendChild(recycleEl); slot.insertBefore(sepRecycleLead, recycleEl); }
@@ -527,38 +492,20 @@ function placeRecycle() {
   updateDockSeps();
 }
 async function findRecycle() {
-  // The desktop's Recycle Bin virtual item, so "default handler" mode can
-  // double-click it (respecting Directory Opus if it's set to replace Explorer);
-  // the system-apps catalog is the Explorer path.
-  try {
-    const res = await dd.folders.list(desktopSrcKey);
-    const items = (res && res.items) || [];
-    dd.log("info", "desktop items: " + items.map((i) => i.name).join(", "));
-    const it = items.find((i) => /recycle|trash/i.test(i.name || ""));
-    if (it) recycleItem = { src: desktopSrcKey, id: it.id };
-  } catch (e) { dd.log("warn", "desktop list failed", (e && e.code) || String(e)); }
+  // The system-apps catalog entry is the fallback if the shell folder can't open.
   try {
     const r = await dd.apps.list();
     const bin = ((r && r.apps) || []).find((a) => /recycle/i.test(a.name || a.id || ""));
     recycleId = bin ? bin.id : null;
   } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
-  dd.log("info", "recycle: desktop item " + (recycleItem ? "found" : "NOT found") + ", apps id " + (recycleId ? "found" : "NOT found"));
-}
-function recycleViaExplorer() {
-  if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
-  else if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(() => {});
 }
 recycleEl.addEventListener("click", () => {
-  // Open the Recycle Bin the most reliable way available: the desktop's bin
-  // item, else the shell folder, else the system-apps entry.
-  if (recycleItem) {
-    dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => {
-      dd.log("warn", "recycle folders.open failed, trying shell:", (e && e.code) || String(e));
-      dd.links.open("shell:RecycleBinFolder").catch(recycleViaExplorer);
-    });
-    return;
-  }
-  dd.links.open("shell:RecycleBinFolder").catch((e) => { dd.log("warn", "recycle links.open failed", (e && e.code) || String(e)); recycleViaExplorer(); });
+  // ShellExecute the Recycle Bin (the host routes it to the default handler),
+  // falling back to the system-apps entry.
+  dd.links.open("shell:RecycleBinFolder").catch((e) => {
+    dd.log("warn", "recycle links.open failed", (e && e.code) || String(e));
+    if (recycleId) dd.apps.launch(recycleId).catch((err) => dd.log("warn", "recycle launch", (err && err.code) || String(err)));
+  });
 });
 // ---- tools button ----------------------------------------------------------
 // Shares the recycle bin's slot map (the same four dock anchors).
@@ -578,23 +525,13 @@ toolsEl.addEventListener("click", () => {
   catch (err) { dd.log("warn", "tools popout failed", (err && err.code) || String(err)); }
 });
 
-async function applyStartImage(pathVal) {
-  if (pathVal === lastStartImage) return;
-  lastStartImage = pathVal;
-  if (!pathVal) { startImg.hidden = true; startImg.style.backgroundImage = ""; startLogo.hidden = false; return; }
-  try {
-    const img = await dd.image.load("startImage");
-    startImg.style.backgroundImage = `url(${img.dataUrl})`;
-    startImg.hidden = false; startLogo.hidden = true;
-  } catch (e) { dd.log("warn", "start image load failed", (e && e.code) || String(e)); startImg.hidden = true; startLogo.hidden = false; }
-}
-
 // ---- tokens / boot --------------------------------------------------------
 async function main() {
   store = dd.bar.store();
   await store.ready;
   lowMotion = store.lowMotion.peek();
   if (lowMotion) document.body.classList.add("low-motion");
+  document.body.classList.add("net-inline"); // network readout is always side-by-side now
 
   fields = Array.from(document.querySelectorAll(".field")).map(makeField);
   readPalette();
@@ -657,42 +594,26 @@ async function main() {
   for (const s of segs) { s.addEventListener("pointermove", onMove); s.addEventListener("pointerleave", onLeave); }
   // Right-click is left to DeskDash's own dock menu — the Tools sheet is the
   // #tools button instead, so nothing shadows the host options.
-  apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
-  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); updateDockSeps(); }); });
+  apps.addEventListener("dd-change", () => { updateHalo(); updateRunning(); });
+  effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); updateRunning(); updateDockSeps(); }); });
 
   dd.settings.bind((s) => {
     reactivity = String(s.reactivity || "audio and vitals");
-    customField = s.customField === true;
-    fieldColors = [s.fieldColorA || "#4ade80", s.fieldColorB || "#38bdf8", s.fieldColorC || "#a78bfa"];
-    glowMul = Math.max(0, (s.fieldGlow ?? 100) / 100);
-    readPalette();
+    readPalette(); // light-field colours come from the theme tokens
     format24 = s.format24h === true;
     clockFaceName = String(s.clockFace || "standard");
-    clockSeconds = s.clockSeconds === true; clockDate = s.clockDate !== false; secondaryTz = String(s.secondaryTz || "");
-    magnifyOn = s.magnify !== false;
-    magApps = s.magnifyApps !== false; magStart = s.magnifyStart !== false;
-    magMedia = s.magnifyMedia !== false; magRecycle = s.magnifyRecycle !== false; magTools = s.magnifyTools !== false;
+    clockSeconds = s.clockSeconds === true; secondaryTz = String(s.secondaryTz || "");
+    magnifyMode = ["everything", "apps only", "off"].includes(String(s.magnify)) ? String(s.magnify) : "everything";
     magStrength = Math.max(0, Math.min(1, (s.magnifyStrength ?? 60) / 100));
     magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 2));
-    breatheOn = s.breathing !== false; breatheSecs = s.breathingInterval ?? 5;
-    bApps = s.breatheApps !== false; bStart = s.breatheStart !== false; bMedia = s.breatheMedia !== false;
-    bRecycle = s.breatheRecycle !== false; bTools = s.breatheTools !== false; bVitals = s.breatheVitals !== false; bNet = s.breatheNet !== false;
-    bWeather = s.breatheWeather !== false; bClock = s.breatheClock !== false; bTray = s.breatheTray !== false;
-    badgesOn = s.badges === true;
+    breatheMode = ["everything", "icons only", "off"].includes(String(s.breathe)) ? String(s.breathe) : "everything";
+    breatheSecs = s.breathingInterval ?? 5;
     weatherPlace = String(s.weatherPlace || "");
     weatherUnits = String(s.weatherUnits || "fahrenheit");
-    weatherSecs = Math.max(1, Math.min(3600, s.weatherInterval ?? 900));
     showWeatherChip = s.showWeatherChip === true;
     scheduleWeather();
     void refreshWeather();
     warnAt = s.vitalsWarnAt ?? 50; dangerAt = s.vitalsDangerAt ?? 90;
-    const rs = document.documentElement.style;
-    rs.setProperty("--v-normal", s.vitalsNormalColor || "#e7edf5");
-    rs.setProperty("--v-warn", s.vitalsWarnColor || "#f59e0b");
-    rs.setProperty("--v-danger", s.vitalsDangerColor || "#f87171");
-    rs.setProperty("--start-scale", ((s.startSize ?? 100) / 100).toFixed(2));
-    rs.setProperty("--edge-pad", (s.edgePadding ?? 25) + "px");
-    rs.setProperty("--spacer", (s.spacing ?? 8) + "px");
     wantRecycle = s.showRecycleBin === true;
     recyclePos = String(s.recyclePosition || "in the dock");
     placeRecycle();
@@ -703,17 +624,14 @@ async function main() {
     // Start button
     startLabel.textContent = s.startLabel || "Start";
     startLabel.hidden = !(s.startLabel && String(s.startLabel).trim());
-    void applyStartImage((s.startImage || "").trim());
     placeStart(String(s.startPlacement || "left edge"));
 
     // Running-app colour
     const run = String(s.runningStyle || "dots");
     document.body.classList.toggle("running-colour", run === "colour" || run === "colour + dots");
     document.body.classList.toggle("hide-dots", run === "colour");
-    rs.setProperty("--idle-dim", (100 - (s.dimIdle ?? 45)) / 100);
 
-    document.body.classList.toggle("no-magnify", !magnifyOn);
-    document.body.classList.toggle("net-inline", String(s.netLayout || "stacked") === "side by side");
+    document.body.classList.toggle("no-magnify", magnifyMode === "off");
     netMode = { "MB/s": "mbs", "Mbps": "mbps", "Dynamic (KB/MB/GB)": "dyn-bytes", "Dynamic (Kbps/Mbps/Gbps)": "dyn-bits" }[String(s.netUnit || "")] || "dyn-bytes";
 
     clockEl.hidden = s.showClock === false;
@@ -722,11 +640,10 @@ async function main() {
     document.body.classList.toggle("show-vitals", s.showVitals !== false);
     document.body.classList.toggle("show-net", s.showNet !== false);
 
-    if (!magnifyOn) resetMag();
+    if (magnifyMode === "off") resetMag();
     refreshMagHosts();
     scheduleBreathe();
     renderClock();
-    refreshBadges();
     requestAnimationFrame(updateMarquee);
     wake();
   });

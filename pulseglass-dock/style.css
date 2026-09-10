@@ -209,11 +209,6 @@ body:not(.show-net) .net { display: none; }
 .tray { flex: none; height: var(--icon); padding: 0 calc(var(--u) * 4); color: var(--dd-text); font-size: calc(var(--u) * 18); }
 .tray::part(separator) { height: calc(var(--icon) * 0.7); }
 
-/* ---- notification badges ----------------------------------------------- */
-.badges { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-.badge { position: absolute; top: 0; left: 0; min-width: calc(var(--u) * 15); height: calc(var(--u) * 15); padding: 0 calc(var(--u) * 3); border-radius: var(--dd-radius-full); background: var(--dd-danger); color: #fff; font-family: var(--dd-font-sans); font-size: calc(var(--u) * 10); font-weight: var(--dd-font-weight-semibold); display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); transition: transform 160ms var(--dd-ease); }
-.badge.pop { animation: badge-pop 320ms var(--dd-ease); }
-@keyframes badge-pop { 0% { scale: 0; } 60% { scale: 1.3; } 100% { scale: 1; } }
 
 /* ---- motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
