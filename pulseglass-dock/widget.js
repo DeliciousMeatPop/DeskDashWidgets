@@ -28,6 +28,7 @@ const barLeft = document.getElementById("bar-left");
 const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
 const recycleEl = document.getElementById("recycle");
+const toolsEl = document.getElementById("tools");
 const sepDockStart = document.getElementById("sep-dock-start");
 const sepDockEnd = document.getElementById("sep-dock-end");
 const sepLeftStart = document.getElementById("sep-left-start");
@@ -51,9 +52,9 @@ let store = null, lowMotion = false;
 let reactivity = "audio and vitals";
 let format24 = false, clockFaceName = "standard", clockSeconds = false, clockDate = true, secondaryTz = "", faceOverride = null;
 let magnifyOn = true, magStrength = 0.6, magReach = 2;
-let magApps = true, magStart = true, magMedia = true, magRecycle = true;
+let magApps = true, magStart = true, magMedia = true, magRecycle = true, magTools = true;
 let breatheOn = true, breatheSecs = 5;
-let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true;
+let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true, bTools = true;
 let badgesOn = false;
 let warnAt = 50, dangerAt = 90;
 let lastStartImage = undefined;
@@ -190,12 +191,12 @@ function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = f
 let magHosts = [];
 // Every dock item (start/recycle/now-playing + app icons), for magnify hover.
 function allDockItems() {
-  return [startEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+  return [startEl, recycleEl, toolsEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // Every element breathing can touch (readouts included), for reset.
 function allBreathable() {
-  return [startEl, recycleEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
+  return [startEl, recycleEl, toolsEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
     .filter(Boolean).concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 // The subset breathing animates, per the per-item breathe toggles.
@@ -206,6 +207,7 @@ function breatheHosts() {
   if (bStart) out.push(startEl);
   if (bMedia && deckEl) out.push(deckEl);
   if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
+  if (bTools && !toolsEl.hidden) out.push(toolsEl);
   if (bVitals) out.push(vitalsEl);
   if (bNet) out.push(netEl);
   if (bWeather && !weatherEl.hidden) out.push(weatherEl);
@@ -222,6 +224,7 @@ function refreshMagHosts() {
   if (magStart && !startEl.hidden) list.push(startEl);
   if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
   if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
+  if (magTools && !toolsEl.hidden) list.push(toolsEl);
   magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -452,7 +455,9 @@ function placeStart(placement) {
 function updateEmptySegments() {
   const hasStart = leftGlass.contains(startEl);
   const hasClock = !clockEl.hidden && leftGlass.contains(clockEl);
-  barLeft.hidden = !(hasStart || hasClock);
+  const hasRecycle = !recycleEl.hidden && leftGlass.contains(recycleEl);
+  const hasTools = !toolsEl.hidden && leftGlass.contains(toolsEl);
+  barLeft.hidden = !(hasStart || hasClock || hasRecycle || hasTools);
 }
 
 // ---- recycle bin -----------------------------------------------------------
@@ -503,6 +508,22 @@ recycleEl.addEventListener("click", () => {
   dd.log("info", "recycle: links.open shell: (no desktop item)");
   dd.links.open("shell:RecycleBinFolder").catch((e) => { dd.log("warn", "recycle links.open failed", (e && e.code) || String(e)); recycleViaExplorer(); });
 });
+// ---- tools & power button --------------------------------------------------
+// Shares the recycle bin's slot map (the same four dock anchors).
+let wantTools = true, toolsPos = "by start";
+function placeTools() {
+  const slot = document.getElementById(RECYCLE_SLOTS[toolsPos] || "slot-start-right");
+  if (slot) slot.appendChild(toolsEl);
+  toolsEl.hidden = !wantTools;
+  refreshMagHosts();
+  updateEmptySegments();
+}
+// Opens the deck popout in its "menu" view — the tools + power sheet.
+toolsEl.addEventListener("click", () => {
+  try { dd.popout.open({ size: { w: 236, h: 452 }, anchor: toolsEl, prefer: "up", data: { view: "menu" } }); }
+  catch (err) { dd.log("warn", "tools menu popout failed", (err && err.code) || String(err)); }
+});
+
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
   lastStartImage = pathVal;
@@ -566,14 +587,8 @@ async function main() {
   segs.forEach((s) => ro.observe(s));
   dd.audio.onSpectrum(onSpectrum);
   for (const s of segs) { s.addEventListener("pointermove", onMove); s.addEventListener("pointerleave", onLeave); }
-  // Right-click the dock → a small power menu (Task Manager, Terminal, …). Not
-  // over the app strip or tray, whose right-click is the host's own menu.
-  for (const s of segs) s.addEventListener("contextmenu", (e) => {
-    if (e.target.closest("dd-app, dd-apps, dd-tray-caret")) return;
-    e.preventDefault();
-    try { dd.popout.open({ size: { w: 214, h: 260 }, anchor: e.currentTarget, prefer: "up", data: { view: "menu" } }); }
-    catch (err) { dd.log("warn", "menu popout failed", (err && err.code) || String(err)); }
-  });
+  // Right-click is left to DeskDash's own dock menu — the tools + power sheet is
+  // the #tools button instead, so nothing shadows the host options.
   apps.addEventListener("dd-change", () => { updateHalo(); refreshBadges(); updateRunning(); });
   effect(() => { store.entries.value; requestAnimationFrame(() => { refreshMagHosts(); updateHalo(); refreshBadges(); updateRunning(); }); });
 
@@ -588,12 +603,12 @@ async function main() {
     clockSeconds = s.clockSeconds === true; clockDate = s.clockDate !== false; secondaryTz = String(s.secondaryTz || "");
     magnifyOn = s.magnify !== false;
     magApps = s.magnifyApps !== false; magStart = s.magnifyStart !== false;
-    magMedia = s.magnifyMedia !== false; magRecycle = s.magnifyRecycle !== false;
+    magMedia = s.magnifyMedia !== false; magRecycle = s.magnifyRecycle !== false; magTools = s.magnifyTools !== false;
     magStrength = Math.max(0, Math.min(1, (s.magnifyStrength ?? 60) / 100));
     magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 2));
     breatheOn = s.breathing !== false; breatheSecs = s.breathingInterval ?? 5;
     bApps = s.breatheApps !== false; bStart = s.breatheStart !== false; bMedia = s.breatheMedia !== false;
-    bRecycle = s.breatheRecycle !== false; bVitals = s.breatheVitals !== false; bNet = s.breatheNet !== false;
+    bRecycle = s.breatheRecycle !== false; bTools = s.breatheTools !== false; bVitals = s.breatheVitals !== false; bNet = s.breatheNet !== false;
     bWeather = s.breatheWeather !== false; bClock = s.breatheClock !== false; bTray = s.breatheTray !== false;
     badgesOn = s.badges === true;
     weatherPlace = String(s.weatherPlace || "");
@@ -614,6 +629,9 @@ async function main() {
     recyclePos = String(s.recyclePosition || "in the dock");
     recycleOpenMode = String(s.recycleOpen || "default handler");
     placeRecycle();
+    wantTools = s.showTools !== false;
+    toolsPos = String(s.toolsPosition || "by start");
+    placeTools();
 
     // Start button
     startLabel.textContent = s.startLabel || "Start";
