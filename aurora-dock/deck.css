@@ -40,7 +40,9 @@ body.np-playing .deck__art-box { box-shadow: 0 0 28px color-mix(in srgb, var(--d
 .deck__time { color: var(--dd-text-muted); font-size: var(--dd-text-xs, 11px); }
 #seek { flex: 1; }
 .deck__transport { display: flex; align-items: center; gap: var(--dd-space-3); }
-.deck__sound { margin-top: auto; }
+.deck__sound-row { display: flex; align-items: center; gap: var(--dd-space-2); margin-top: auto; }
+.deck__sound-ico { --dd-icon-size: 20px; color: var(--dd-text-muted); flex: none; }
+.deck__sound { flex: 1; }
 .deck__empty { display: none; }
 body:not(.np-active) .deck__seek,
 body:not(.np-active) .deck__transport { opacity: 0.4; pointer-events: none; }
