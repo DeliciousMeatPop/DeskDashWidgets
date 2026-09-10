@@ -53,6 +53,7 @@ let format24 = false, clockFaceName = "standard", clockSeconds = false, clockDat
 let magnifyOn = true, magStrength = 0.6, magReach = 2;
 let magApps = true, magStart = true, magMedia = true, magRecycle = true;
 let breatheOn = true, breatheSecs = 5;
+let bApps = true, bStart = true, bMedia = true, bRecycle = true, bVitals = true, bNet = true, bWeather = true, bClock = true, bTray = true;
 let badgesOn = false;
 let warnAt = 50, dangerAt = 90;
 let lastStartImage = undefined;
@@ -187,10 +188,30 @@ function onMove(e) {
 function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = false; resetMag(); wake(); }
 
 let magHosts = [];
-// Every dock item, for breathing (which is independent of the magnify toggles).
+// Every dock item (start/recycle/now-playing + app icons), for magnify hover.
 function allDockItems() {
   return [startEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
+}
+// Every element breathing can touch (readouts included), for reset.
+function allBreathable() {
+  return [startEl, recycleEl, document.getElementById("deck"), vitalsEl, netEl, weatherEl, clockEl, document.querySelector(".tray")]
+    .filter(Boolean).concat(Array.from(apps.querySelectorAll("dd-app")));
+}
+// The subset breathing animates, per the per-item breathe toggles.
+function breatheHosts() {
+  const out = [];
+  const deckEl = document.getElementById("deck"), trayEl = document.querySelector(".tray");
+  if (bApps) out.push(...Array.from(apps.querySelectorAll("dd-app")));
+  if (bStart) out.push(startEl);
+  if (bMedia && deckEl) out.push(deckEl);
+  if (bRecycle && !recycleEl.hidden) out.push(recycleEl);
+  if (bVitals) out.push(vitalsEl);
+  if (bNet) out.push(netEl);
+  if (bWeather && !weatherEl.hidden) out.push(weatherEl);
+  if (bClock && !clockEl.hidden) out.push(clockEl);
+  if (bTray && trayEl) out.push(trayEl);
+  return out.filter(Boolean);
 }
 // Only the items whose per-item magnify toggle is on (and the master is on).
 function refreshMagHosts() {
@@ -226,10 +247,10 @@ function scheduleBreathe() {
 }
 // Breathing resets every dock item (it runs on all of them, not just the
 // magnify set), so nothing is left with a stuck transform.
-function endBreathe() { allDockItems().forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
+function endBreathe() { allBreathable().forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
 function runBreathe() {
   if (document.hidden || hoverActive) return;
-  const items = allDockItems(), start = performance.now();
+  const items = breatheHosts(), start = performance.now();
   cancelAnimationFrame(breatheRAF);
   document.body.classList.add("breathing"); // pulses the start words (CSS)
   const tick = (now) => {
@@ -244,6 +265,17 @@ function runBreathe() {
     breatheRAF = requestAnimationFrame(tick);
   };
   breatheRAF = requestAnimationFrame(tick);
+}
+
+// ---- open the deck on a specific tab --------------------------------------
+// The popout is a separate document, so localStorage doesn't cross into it —
+// pass the tab through the popout's own data channel; fall back to storage +
+// the chip's own pane trigger if programmatic open isn't available.
+function openDeck(tab, anchor) {
+  try { dd.popout.open({ size: { w: 560, h: 360 }, anchor, prefer: "up", data: { tab } }); return; }
+  catch (e) { dd.log("warn", "popout.open failed", (e && e.code) || String(e)); }
+  try { dd.storage.set("openTab", tab); } catch {}
+  document.getElementById("deck").click();
 }
 
 // ---- clock ----------------------------------------------------------------
@@ -399,7 +431,7 @@ function scheduleWeather() {
   if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; }
   if (showWeatherChip && weatherPlace.trim()) weatherTimer = setInterval(refreshWeather, Math.max(1, weatherSecs) * 1000);
 }
-weatherEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "weather"); } catch {} document.getElementById("deck").click(); });
+weatherEl.addEventListener("click", () => openDeck("weather", weatherEl));
 
 // ---- running-app colour ---------------------------------------------------
 function updateRunning() {
@@ -447,19 +479,20 @@ async function findRecycle() {
   } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
   dd.log("info", "recycle: desktop item " + (recycleItem ? "found" : "NOT found") + ", apps id " + (recycleId ? "found" : "NOT found"));
 }
-recycleEl.addEventListener("click", () => {
-  const explorer = recycleOpenMode === "file explorer";
-  if (!explorer && recycleItem) {
-    dd.log("info", "recycle: default handler (folders.open)");
-    dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => {
-      dd.log("warn", "recycle folders.open failed, using Explorer", (e && e.code) || String(e));
-      if (recycleId) dd.apps.launch(recycleId).catch(() => {});
-    });
-    return;
-  }
-  dd.log("info", "recycle: Explorer (apps.launch)" + (recycleItem ? "" : " — no desktop item"));
+function recycleViaExplorer() {
   if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
   else if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(() => {});
+}
+recycleEl.addEventListener("click", () => {
+  if (recycleOpenMode === "file explorer") { recycleViaExplorer(); return; }
+  // Default handler: ShellExecute the recycle-bin shell folder. Because DOpus
+  // is the default file handler, Windows routes this to DOpus (like double-
+  // clicking the desktop bin), not Explorer.
+  dd.links.open("shell:RecycleBinFolder").catch((e) => {
+    dd.log("warn", "recycle links.open failed, trying folders.open", (e && e.code) || String(e));
+    if (recycleItem) dd.folders.open(recycleItem.src, recycleItem.id).catch(recycleViaExplorer);
+    else recycleViaExplorer();
+  });
 });
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -514,8 +547,8 @@ async function main() {
     "net-rx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.rxBps) : "–") },
     "net-tx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.txBps) : "–") },
   });
-  vitalsEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "sys"); } catch {} document.getElementById("deck").click(); });
-  netEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "net"); } catch {} document.getElementById("deck").click(); });
+  vitalsEl.addEventListener("click", () => openDeck("sys", vitalsEl));
+  netEl.addEventListener("click", () => openDeck("net", netEl));
   dd.system.onVitals(onVitals);
   dd.system.status().then((seed) => { if (seed) onVitals(seed); }).catch((e) => dd.log("warn", "vitals seed", String(e)));
 
@@ -542,6 +575,9 @@ async function main() {
     magStrength = Math.max(0, Math.min(1, (s.magnifyStrength ?? 60) / 100));
     magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 2));
     breatheOn = s.breathing !== false; breatheSecs = s.breathingInterval ?? 5;
+    bApps = s.breatheApps !== false; bStart = s.breatheStart !== false; bMedia = s.breatheMedia !== false;
+    bRecycle = s.breatheRecycle !== false; bVitals = s.breatheVitals !== false; bNet = s.breatheNet !== false;
+    bWeather = s.breatheWeather !== false; bClock = s.breatheClock !== false; bTray = s.breatheTray !== false;
     badgesOn = s.badges === true;
     weatherPlace = String(s.weatherPlace || "");
     weatherUnits = String(s.weatherUnits || "fahrenheit");

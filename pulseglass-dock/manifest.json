@@ -55,7 +55,16 @@
     { "key": "magnifyRecycle", "type": "boolean", "label": "· magnify Recycle Bin", "default": true, "showIf": { "key": "magnify", "equals": true } },
     { "key": "magnifyStrength", "type": "number", "label": "Magnify strength (%)", "min": 0, "max": 100, "default": 100, "showIf": { "key": "magnify", "equals": true } },
     { "key": "magnifyReach", "type": "number", "label": "Magnify reach (neighbours)", "min": 1, "max": 6, "default": 1, "showIf": { "key": "magnify", "equals": true } },
-    { "key": "breathing", "type": "boolean", "label": "Breathing pulse", "default": true },
+    { "key": "breathing", "type": "boolean", "label": "Breathing pulse (master)", "default": true },
+    { "key": "breatheApps", "type": "boolean", "label": "· breathe app icons", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheStart", "type": "boolean", "label": "· breathe Start", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheMedia", "type": "boolean", "label": "· breathe Now-playing", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheRecycle", "type": "boolean", "label": "· breathe Recycle Bin", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheVitals", "type": "boolean", "label": "· breathe CPU/RAM/GPU", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheNet", "type": "boolean", "label": "· breathe Network", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheWeather", "type": "boolean", "label": "· breathe Weather", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheClock", "type": "boolean", "label": "· breathe Clock", "default": true, "showIf": { "key": "breathing", "equals": true } },
+    { "key": "breatheTray", "type": "boolean", "label": "· breathe tray overflow", "default": true, "showIf": { "key": "breathing", "equals": true } },
     { "key": "breathingInterval", "type": "number", "label": "Breathe every (seconds, 0 = off)", "min": 0, "max": 600, "default": 5 },
 
     { "key": "spacing", "type": "number", "label": "Spacer margin (px)", "min": 0, "max": 40, "default": 8 },
@@ -120,6 +129,7 @@
     "desktop": true,
     "folders": true,
     "storage": true,
+    "links": { "prefixes": ["shell:"] },
     "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"], "rateLimit": 120 }
   }
 }

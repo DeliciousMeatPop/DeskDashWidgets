@@ -217,13 +217,13 @@ async function setupWeather(st) {
 }
 
 // ---- tabs -----------------------------------------------------------------
-function setupTabs(st) {
+function setupTabs(st, initialTab) {
   const tabs = Array.from(document.querySelectorAll(".tab"));
   const pages = { np: "page-np", sys: "page-sys", drives: "page-drives", net: "page-net", weather: "page-weather" };
   const enabled = { np: true, sys: st.tabSystem !== false, drives: st.tabDrives !== false, net: st.tabNetwork !== false, weather: st.tabWeather !== false };
   for (const t of tabs) t.hidden = !enabled[t.dataset.tab];
-  let active = "np";
-  try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch {}
+  let active = initialTab || null;
+  if (!active) { try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch { active = "np"; } }
   if (!enabled[active]) active = "np";
   function show(name) {
     if (!pages[name] || !enabled[name]) name = "np";
@@ -240,6 +240,10 @@ async function main() {
   const deckSettings = (ctx && ctx.settings) || (() => { try { return dd.settings.get() || {}; } catch { return {}; } })();
   warnAt = deckSettings.vitalsWarnAt ?? 50;
   dangerAt = deckSettings.vitalsDangerAt ?? 90;
+  // Which tab to open on: the popout data (set by the taskbar click), else a
+  // one-shot storage hint, else the last tab.
+  let initialTab = (ctx && ctx.popout && ctx.popout.data && ctx.popout.data.tab) || null;
+  if (!initialTab) { try { const t = await dd.storage.get("openTab"); if (t) { initialTab = t; dd.storage.set("openTab", null); } } catch {} }
 
   bindParts(mediaEl, {
     fallback: { hidden: () => Boolean(np.value && np.value.art) },
@@ -293,7 +297,7 @@ async function main() {
 
   effect(renderDrives);
   setupNetGraph();
-  setupTabs(deckSettings);
+  setupTabs(deckSettings, initialTab);
   void setupWeather(deckSettings);
   addEventListener("resize", updateMarquee);
 }
