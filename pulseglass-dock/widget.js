@@ -51,6 +51,7 @@ let store = null, lowMotion = false;
 let reactivity = "audio and vitals";
 let format24 = false, clockFaceName = "standard", clockSeconds = false, clockDate = true, secondaryTz = "", faceOverride = null;
 let magnifyOn = true, magStrength = 0.6, magReach = 2;
+let magApps = true, magStart = true, magMedia = true, magRecycle = true;
 let breatheOn = true, breatheSecs = 5;
 let badgesOn = false;
 let warnAt = 50, dangerAt = 90;
@@ -186,9 +187,21 @@ function onMove(e) {
 function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = false; resetMag(); wake(); }
 
 let magHosts = [];
-function refreshMagHosts() {
-  magHosts = [startEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+// Every dock item, for breathing (which is independent of the magnify toggles).
+function allDockItems() {
+  return [startEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
+}
+// Only the items whose per-item magnify toggle is on (and the master is on).
+function refreshMagHosts() {
+  const list = [];
+  if (!magnifyOn) { magHosts = []; return; }
+  const deckEl = document.getElementById("deck");
+  if (magApps) list.push(...Array.from(apps.querySelectorAll("dd-app")));
+  if (magStart && !startEl.hidden) list.push(startEl);
+  if (magMedia && deckEl && !deckEl.hidden) list.push(deckEl);
+  if (magRecycle && !recycleEl.hidden) list.push(recycleEl);
+  magHosts = list;
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
 function magnify(px) {
@@ -211,17 +224,18 @@ function scheduleBreathe() {
   if (!breatheOn || !breatheSecs || lowMotion) return;
   breatheTimer = setInterval(runBreathe, breatheSecs * 1000);
 }
-function endBreathe(items) { if (items) items.forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
+// Breathing resets every dock item (it runs on all of them, not just the
+// magnify set), so nothing is left with a stuck transform.
+function endBreathe() { allDockItems().forEach((el) => setVars(el, 1, 0)); document.body.classList.remove("breathing"); breatheRAF = 0; }
 function runBreathe() {
   if (document.hidden || hoverActive) return;
-  refreshMagHosts();
-  const items = magHosts.slice(), start = performance.now();
+  const items = allDockItems(), start = performance.now();
   cancelAnimationFrame(breatheRAF);
   document.body.classList.add("breathing"); // pulses the start words (CSS)
   const tick = (now) => {
     if (hoverActive) return endBreathe(); // hover takes the channel
     const t = (now - start) / BREATHE_DUR;
-    if (t >= 1) return endBreathe(items);
+    if (t >= 1) return endBreathe();
     items.forEach((el, i) => {
       const phase = t - i * STAGGER;
       const a = phase > 0 && phase < WAVE ? Math.sin((phase / WAVE) * Math.PI) : 0;
@@ -331,7 +345,7 @@ function refreshBadges() {
 }
 
 // ---- weather (taskbar chip, via dd.http + open-meteo) ---------------------
-let weatherPlace = "", weatherUnits = "fahrenheit", showWeatherChip = false;
+let weatherPlace = "", weatherUnits = "fahrenheit", showWeatherChip = false, weatherSecs = 900;
 let weatherGeo = null, weatherTimer = null;
 function wxEmoji(code, isDay) {
   if (code === 0) return isDay ? "☀️" : "🌙";
@@ -383,7 +397,7 @@ async function refreshWeather() {
 }
 function scheduleWeather() {
   if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; }
-  if (showWeatherChip && weatherPlace.trim()) weatherTimer = setInterval(refreshWeather, 15 * 60 * 1000);
+  if (showWeatherChip && weatherPlace.trim()) weatherTimer = setInterval(refreshWeather, Math.max(1, weatherSecs) * 1000);
 }
 weatherEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "weather"); } catch {} document.getElementById("deck").click(); });
 
@@ -434,14 +448,6 @@ async function findRecycle() {
 recycleEl.addEventListener("click", () => {
   if (recycleItem) { dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => dd.log("warn", "recycle open", (e && e.code) || String(e))); return; }
   if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
-});
-recycleEl.addEventListener("contextmenu", (e) => {
-  e.preventDefault();
-  let done = false;
-  for (const verb of ["shell.emptyRecycleBin", "shell.recycleBin.empty", "recycle.empty"]) {
-    try { if (dd.request) { dd.request(verb); done = true; break; } } catch {}
-  }
-  if (!done) dd.log("info", "empty recycle bin not supported by host");
 });
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -496,7 +502,7 @@ async function main() {
     "net-rx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.rxBps) : "–") },
     "net-tx": { textContent: () => (vitals.value && vitals.value.net ? bps(vitals.value.net.txBps) : "–") },
   });
-  vitalsEl.addEventListener("click", () => document.getElementById("deck").click());
+  vitalsEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "sys"); } catch {} document.getElementById("deck").click(); });
   netEl.addEventListener("click", () => { try { localStorage.setItem("pulseglass-dock:tab", "net"); } catch {} document.getElementById("deck").click(); });
   dd.system.onVitals(onVitals);
   dd.system.status().then((seed) => { if (seed) onVitals(seed); }).catch((e) => dd.log("warn", "vitals seed", String(e)));
@@ -519,12 +525,15 @@ async function main() {
     clockFaceName = String(s.clockFace || "standard");
     clockSeconds = s.clockSeconds === true; clockDate = s.clockDate !== false; secondaryTz = String(s.secondaryTz || "");
     magnifyOn = s.magnify !== false;
+    magApps = s.magnifyApps !== false; magStart = s.magnifyStart !== false;
+    magMedia = s.magnifyMedia !== false; magRecycle = s.magnifyRecycle !== false;
     magStrength = Math.max(0, Math.min(1, (s.magnifyStrength ?? 60) / 100));
     magReach = Math.max(1, Math.min(6, s.magnifyReach ?? 2));
     breatheOn = s.breathing !== false; breatheSecs = s.breathingInterval ?? 5;
     badgesOn = s.badges === true;
     weatherPlace = String(s.weatherPlace || "");
     weatherUnits = String(s.weatherUnits || "fahrenheit");
+    weatherSecs = Math.max(1, Math.min(3600, s.weatherInterval ?? 900));
     showWeatherChip = s.showWeatherChip === true;
     scheduleWeather();
     void refreshWeather();

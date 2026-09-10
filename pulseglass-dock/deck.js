@@ -217,14 +217,16 @@ async function setupWeather(st) {
 }
 
 // ---- tabs -----------------------------------------------------------------
-function setupTabs() {
+function setupTabs(st) {
   const tabs = Array.from(document.querySelectorAll(".tab"));
   const pages = { np: "page-np", sys: "page-sys", drives: "page-drives", net: "page-net", weather: "page-weather" };
+  const enabled = { np: true, sys: st.tabSystem !== false, drives: st.tabDrives !== false, net: st.tabNetwork !== false, weather: st.tabWeather !== false };
+  for (const t of tabs) t.hidden = !enabled[t.dataset.tab];
   let active = "np";
   try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch {}
+  if (!enabled[active]) active = "np";
   function show(name) {
-    if (!pages[name]) name = "np";
-    active = name;
+    if (!pages[name] || !enabled[name]) name = "np";
     try { localStorage.setItem("pulseglass-dock:tab", name); } catch {}
     for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.tab === name));
     for (const [k, id] of Object.entries(pages)) document.getElementById(id).hidden = k !== name;
@@ -291,7 +293,7 @@ async function main() {
 
   effect(renderDrives);
   setupNetGraph();
-  setupTabs();
+  setupTabs(deckSettings);
   void setupWeather(deckSettings);
   addEventListener("resize", updateMarquee);
 }
