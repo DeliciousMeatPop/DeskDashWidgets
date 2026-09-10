@@ -28,9 +28,8 @@ const barLeft = document.getElementById("bar-left");
 const slotStartRight = document.getElementById("slot-start-right");
 const slotDockStart = document.getElementById("slot-dock-start");
 const recycleEl = document.getElementById("recycle");
-const showdesktopEl = document.getElementById("showdesktop");
 const sepDockStart = document.getElementById("sep-dock-start");
-const sepExtras = document.getElementById("sep-extras");
+const sepDockEnd = document.getElementById("sep-dock-end");
 const sepLeftStart = document.getElementById("sep-left-start");
 const sepStartRight = document.getElementById("sep-start-right");
 const sepInfoLeft = document.getElementById("sep-info-left");
@@ -188,7 +187,7 @@ function onLeave() { hoverActive = false; for (const f of fields) f.torch.on = f
 
 let magHosts = [];
 function refreshMagHosts() {
-  magHosts = [startEl, showdesktopEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
+  magHosts = [startEl, recycleEl, document.getElementById("deck")].filter((el) => el && !el.hidden)
     .concat(Array.from(apps.querySelectorAll("dd-app")));
 }
 function setVars(el, s, lift) { el.style.setProperty("--mag-scale", s.toFixed(3)); el.style.setProperty("--mag-lift", lift.toFixed(1) + "px"); }
@@ -331,7 +330,7 @@ function refreshBadges() {
   for (const node of [...badgesEl.children]) if (!keep.has(node.dataset.key)) node.remove();
 }
 
-// ---- weather (taskbar chip) -----------------------------------------------
+// ---- weather (taskbar chip, via dd.http + open-meteo) ---------------------
 let weatherPlace = "", weatherUnits = "fahrenheit", showWeatherChip = false;
 let weatherGeo = null, weatherTimer = null;
 function wxEmoji(code, isDay) {
@@ -346,26 +345,41 @@ function wxEmoji(code, isDay) {
   if (code >= 95) return "⛈️";
   return "🌡️";
 }
-async function ensureGeo() {
-  const q = weatherPlace.trim();
-  if (!q) { weatherGeo = null; return null; }
+async function httpJson(url, query) {
+  const res = await dd.http.fetch({ url, query });
+  if (res && res.json) return res.json;
+  try { return JSON.parse((res && res.bodyText) || "{}"); } catch { return null; }
+}
+async function geocode(place) {
+  const q = place.trim();
   if (weatherGeo && weatherGeo.query === q) return weatherGeo;
-  try { const g = await dd.weather.geocode(q, { cacheKey: "pg" }); weatherGeo = { ...g, query: q }; }
-  catch (e) { dd.log("warn", "geocode failed", (e && e.code) || String(e)); weatherGeo = null; }
+  const g = await httpJson("https://geocoding-api.open-meteo.com/v1/search", { name: q, count: "1" });
+  const r = g && g.results && g.results[0];
+  if (!r) throw new Error("no match for " + q);
+  weatherGeo = { query: q, lat: r.latitude, lon: r.longitude, label: [r.name, r.admin1, r.country_code].filter(Boolean).join(", ") };
   return weatherGeo;
 }
 async function refreshWeather() {
   const show = showWeatherChip && !!weatherPlace.trim();
   if (!show) { weatherEl.hidden = true; sepWeather.hidden = true; refreshMagHosts(); return; }
-  const geo = await ensureGeo();
-  if (!geo) { weatherEl.hidden = true; sepWeather.hidden = true; return; }
   try {
-    const cur = await dd.weather.current({ lat: geo.lat, lon: geo.lon, units: weatherUnits });
-    weatherGlyph.textContent = wxEmoji(cur.code, cur.isDay);
-    weatherTemp.textContent = Math.round(cur.temperature) + "°";
+    const geo = await geocode(weatherPlace);
+    const f = await httpJson("https://api.open-meteo.com/v1/forecast", {
+      latitude: String(geo.lat), longitude: String(geo.lon),
+      current: "temperature_2m,weather_code,is_day", temperature_unit: weatherUnits, timezone: "auto",
+    });
+    const c = f && f.current;
+    if (!c) throw new Error("no current");
+    weatherGlyph.textContent = wxEmoji(c.weather_code, !!c.is_day);
+    weatherTemp.textContent = Math.round(c.temperature_2m) + "°";
     weatherEl.title = geo.label || weatherPlace;
     weatherEl.hidden = false; sepWeather.hidden = false;
-  } catch (e) { dd.log("warn", "weather current failed", (e && e.code) || String(e)); }
+  } catch (e) {
+    dd.log("warn", "weather failed", (e && e.code) || String(e));
+    weatherGlyph.textContent = "⚠️"; weatherTemp.textContent = ""; weatherEl.title = "Weather unavailable";
+    weatherEl.hidden = false; sepWeather.hidden = false; // keep it visible so the failure is obvious
+  }
+  refreshMagHosts();
 }
 function scheduleWeather() {
   if (weatherTimer) { clearInterval(weatherTimer); weatherTimer = null; }
@@ -392,18 +406,42 @@ function updateEmptySegments() {
   barLeft.hidden = !(hasStart || hasClock);
 }
 
-// ---- dock extras (recycle bin / show desktop) -----------------------------
-let wantRecycle = false, wantDesktop = false;
-function updateExtras() {
-  recycleEl.hidden = !(wantRecycle && recycleId);
-  showdesktopEl.hidden = !wantDesktop;
-  sepExtras.hidden = recycleEl.hidden && showdesktopEl.hidden;
+// ---- recycle bin -----------------------------------------------------------
+const RECYCLE_SLOTS = { "in the dock": "slot-dock-end", "by start": "slot-start-right", "left of info": "slot-info-left", "far right": "slot-info-right" };
+let wantRecycle = false, recyclePos = "in the dock", desktopSrcKey = "desktopSrc", recycleItem = null;
+function placeRecycle() {
+  const slot = document.getElementById(RECYCLE_SLOTS[recyclePos] || "slot-dock-end");
+  if (slot) slot.appendChild(recycleEl);
+  recycleEl.hidden = !wantRecycle;
+  sepDockEnd.hidden = !(wantRecycle && recyclePos === "in the dock");
   refreshMagHosts();
+  updateEmptySegments();
 }
-recycleEl.addEventListener("click", () => { if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e))); });
-showdesktopEl.addEventListener("click", () => {
-  try { if (dd.request) return void dd.request("shell.showDesktop"); } catch {}
-  try { dd.request && dd.request("shell.minimizeAll"); } catch (e) { dd.log("warn", "show desktop unavailable", String(e)); }
+async function findRecycle() {
+  // Prefer the desktop's Recycle Bin virtual item so it opens with the user's
+  // default handler (e.g. Directory Opus); fall back to the system-apps catalog.
+  try {
+    const res = await dd.folders.list(desktopSrcKey);
+    const it = ((res && res.items) || []).find((i) => /recycle/i.test(i.name || ""));
+    if (it) { recycleItem = { src: desktopSrcKey, id: it.id }; return; }
+  } catch (e) { dd.log("warn", "desktop list failed", (e && e.code) || String(e)); }
+  try {
+    const r = await dd.apps.list();
+    const bin = ((r && r.apps) || []).find((a) => /recycle/i.test(a.name || a.id || ""));
+    recycleId = bin ? bin.id : null;
+  } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
+}
+recycleEl.addEventListener("click", () => {
+  if (recycleItem) { dd.folders.open(recycleItem.src, recycleItem.id).catch((e) => dd.log("warn", "recycle open", (e && e.code) || String(e))); return; }
+  if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
+});
+recycleEl.addEventListener("contextmenu", (e) => {
+  e.preventDefault();
+  let done = false;
+  for (const verb of ["shell.emptyRecycleBin", "shell.recycleBin.empty", "recycle.empty"]) {
+    try { if (dd.request) { dd.request(verb); done = true; break; } } catch {}
+  }
+  if (!done) dd.log("info", "empty recycle bin not supported by host");
 });
 async function applyStartImage(pathVal) {
   if (pathVal === lastStartImage) return;
@@ -426,11 +464,7 @@ async function main() {
   fields = Array.from(document.querySelectorAll(".field")).map(makeField);
   readPalette();
 
-  // Find the Recycle Bin in the system-apps catalog (for the optional dock button).
-  try {
-    const r = await dd.apps.list();
-    recycleId = ((r && r.apps) || []).find((a) => /recycle/i.test(a.name || a.id || ""))?.id || null;
-  } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
+  await findRecycle(); // locate the Recycle Bin (desktop item preferred, apps fallback)
 
   bindParts(clockEl, { time: { textContent: time }, date: { textContent: date } });
   dd.time.onTick(onTick); onTick();
@@ -503,8 +537,8 @@ async function main() {
     rs.setProperty("--edge-pad", (s.edgePadding ?? 25) + "px");
     rs.setProperty("--spacer", (s.spacing ?? 8) + "px");
     wantRecycle = s.showRecycleBin === true;
-    wantDesktop = s.showDesktopBtn === true;
-    updateExtras();
+    recyclePos = String(s.recyclePosition || "in the dock");
+    placeRecycle();
 
     // Start button
     startLabel.textContent = s.startLabel || "Start";

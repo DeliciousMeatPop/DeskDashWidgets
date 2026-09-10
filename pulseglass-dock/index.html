@@ -26,16 +26,15 @@
       </dd-panel>
     </dd-bar>
 
-    <!-- CENTER: recycle/show-desktop + the app strip -->
+    <!-- CENTER: the app strip (start + recycle can dock here) -->
     <dd-bar id="bar-center" class="seg" place="center" reach="20">
       <dd-panel class="glass" bare>
         <canvas class="field" aria-hidden="true"></canvas>
         <span class="slot" id="slot-dock-start"></span>
         <span class="sep" id="sep-dock-start" hidden></span>
-        <button id="showdesktop" class="dockbtn dock-plain" type="button" aria-label="Show desktop" hidden><span class="dockbtn__ico ico-desktop"></span></button>
-        <button id="recycle" class="dockbtn dock-plain" type="button" aria-label="Recycle Bin" hidden><span class="dockbtn__ico ico-trash"></span></button>
-        <span class="sep" id="sep-extras" hidden></span>
         <dd-apps id="apps" settings="pins" indicator="dots" stagger="40" sortable></dd-apps>
+        <span class="sep" id="sep-dock-end" hidden></span>
+        <span class="slot" id="slot-dock-end"></span>
         <div class="badges" id="badges" aria-hidden="true"></div>
       </dd-panel>
     </dd-bar>
@@ -90,6 +89,11 @@
         <span class="slot" id="slot-far-right"></span>
       </dd-panel>
     </dd-bar>
+
+    <!-- Recycle Bin (JS re-parents it into the chosen slot). -->
+    <button id="recycle" class="dockbtn dock-plain" type="button" aria-label="Recycle Bin" title="Recycle Bin — right-click to empty" hidden>
+      <span class="dockbtn__ico ico-recycle"></span>
+    </button>
 
     <!-- The clock lives here and JS re-parents it into the chosen slot. -->
     <button class="clock" id="clock" type="button" aria-label="Clock" hidden>

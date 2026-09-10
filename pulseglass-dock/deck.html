@@ -10,8 +10,9 @@
       <nav class="tabs" id="tabs" role="tablist">
         <button class="tab" data-tab="np" role="tab" aria-selected="true">Now playing</button>
         <button class="tab" data-tab="sys" role="tab">System</button>
+        <button class="tab" data-tab="drives" role="tab">Drives</button>
         <button class="tab" data-tab="net" role="tab">Network</button>
-        <button class="tab" data-tab="weather" role="tab" id="tab-weather" hidden>Weather</button>
+        <button class="tab" data-tab="weather" role="tab">Weather</button>
       </nav>
 
       <!-- Now playing -->
@@ -53,9 +54,14 @@
         <div class="deck__chips" id="chips"></div>
       </section>
 
+      <!-- Drives -->
+      <section class="page drives-page" id="page-drives" data-page="drives" hidden>
+        <div class="drives" id="drives"></div>
+      </section>
+
       <!-- Network -->
       <section class="page net-page" id="page-net" data-page="net" hidden>
-        <canvas id="net-graph" class="net-graph"></canvas>
+        <div class="net-graph-box"><canvas id="net-graph" class="net-graph"></canvas></div>
         <div class="net-legend">
           <span class="lg down"><i>Download</i><b id="net-down">–</b></span>
           <span class="lg up"><i>Upload</i><b id="net-up">–</b></span>

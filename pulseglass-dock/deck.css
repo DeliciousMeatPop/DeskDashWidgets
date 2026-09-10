@@ -67,7 +67,11 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 /* Grid rows pin the legend to the bottom; the graph takes the rest and can
    never push the numbers off the panel. */
 .net-page { display: grid; grid-template-rows: 1fr auto; gap: var(--dd-space-3); min-height: 0; overflow: hidden; }
-.net-graph { width: 100%; min-height: 0; border-radius: var(--dd-radius-md); background: var(--dd-surface-transparent); }
+/* The graph is clipped inside a box with a hard bottom edge, so a tall spike
+   can never draw over the numbers below it. */
+.net-graph-box { position: relative; min-height: 0; overflow: hidden; border-radius: var(--dd-radius-md);
+  background: var(--dd-surface-transparent); border-bottom: 2px solid var(--dd-border); }
+.net-graph { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 /* Three equal, centred columns so the numbers never shove each other. */
 .net-legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--dd-space-2); flex: none; }
 .lg { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: var(--dd-space-2) 0;
@@ -78,6 +82,17 @@ body:not(.np-active) .deck__empty { display: block; color: var(--dd-text-muted);
 .lg.down i::before { background: var(--dd-accent); }
 .lg.up i::before { background: var(--dd-success); }
 .lg b { color: var(--dd-text); font-variant-numeric: tabular-nums; font-weight: var(--dd-font-weight-semibold); }
+
+/* ---- drives ---- */
+.drives-page { overflow-y: auto; }
+.drives { display: flex; flex-direction: column; gap: var(--dd-space-3); }
+.drive { display: flex; flex-direction: column; gap: 4px; }
+.drive__head { display: flex; align-items: baseline; justify-content: space-between; }
+.drive__letter { font-size: 15px; font-weight: var(--dd-font-weight-bold); }
+.drive__pct { color: var(--dd-text-muted); font-size: var(--dd-text-sm, 13px); font-variant-numeric: tabular-nums; }
+.drive__bar { height: 8px; border-radius: 999px; background: var(--dd-border); overflow: hidden; }
+.drive__bar i { display: block; height: 100%; background: var(--dd-accent); transition: width .4s var(--dd-ease); }
+.drive__sub { color: var(--dd-text-muted); font-size: var(--dd-text-xs, 11px); font-variant-numeric: tabular-nums; }
 
 /* ---- weather ---- */
 .weather-page { display: flex; flex-direction: column; gap: var(--dd-space-3); }
