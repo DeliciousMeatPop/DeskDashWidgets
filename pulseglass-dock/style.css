@@ -204,7 +204,8 @@ body:not(.show-vitals) .vitals { display: none; }
 
 /* Side-by-side: two columns that match the CPU/RAM/GPU look (value over label). */
 body.net-inline .net { flex-direction: row; gap: 0; align-items: center; }
-body.net-inline .net__item { flex-direction: column; align-items: center; width: calc(var(--u) * 46); padding: 0 var(--spacer, 8px); }
+body.net-inline .net__item { flex-direction: column; align-items: center; width: calc(var(--u) * 52); padding: 0 var(--spacer, 8px); }
+body.net-inline .net__cap { white-space: nowrap; }
 body.net-inline .net__item + .net__item { border-left: 1px solid var(--dd-border); }
 body.net-inline .net__v { font-size: calc(var(--u) * 14); font-weight: var(--dd-font-weight-semibold); text-align: center; width: 100%; }
 body.net-inline .net__cap { margin-top: calc(var(--u) * 2); }

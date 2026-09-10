@@ -115,6 +115,9 @@
     { "key": "showNet", "type": "boolean", "label": "Network readout", "default": true },
     { "key": "netLayout", "type": "select", "label": "Network layout", "options": ["stacked", "side by side"], "default": "side by side",
       "showIf": { "key": "showNet", "equals": true } },
+    { "key": "netUnit", "type": "select", "label": "Network units",
+      "options": ["MB/s (like Steam)", "Mbps (like Windows)"], "default": "MB/s (like Steam)",
+      "showIf": { "key": "showNet", "equals": true } },
 
     { "key": "weatherPlace", "type": "text", "label": "Weather location (city)", "placeholder": "London", "default": "" },
     { "key": "weatherUnits", "type": "select", "label": "Weather units", "options": ["fahrenheit", "celsius"], "default": "fahrenheit" },
