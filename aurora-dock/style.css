@@ -1,56 +1,58 @@
-/* Aurora Dock — bar styling. Reset, <dd-bar>, <dd-panel>, <dd-icon> come from
-   /__sdk/dd-base.css. Geometry is a unit system on the strip height: the
-   manifest thickness is 128 logical px, so 100vh == 128 CSS px and --u == 1
-   design px. Structure follows Aurora; the dock behaviours (magnification,
-   number vitals, badges, breathing) are the additions. */
+/* Aurora Dock — segmented bar styling. Reset, <dd-bar>, <dd-panel>, <dd-icon>
+   come from /__sdk/dd-base.css. --u is one design px (manifest thickness 128,
+   so 100vh == 128 CSS px). Structure follows Aurora; the dock behaviours are
+   the additions. Every readout has a FIXED width so numbers never shove their
+   neighbours. */
 
 :root {
   --u: calc(100vh / 128);
-  --glass-h: calc(var(--u) * 56);
-  --glass-pad: calc(var(--u) * 14);
+  --glass-h: calc(var(--u) * 50);
+  --glass-float: calc(var(--u) * 6);
+  --glass-pad: calc(var(--u) * 12);
   --icon: calc(var(--u) * 36);
   --lift: calc(var(--u) * 10);
   --dot-lane: calc(var(--u) * 10);
-  --label-lane: calc(var(--u) * 62);
-  --art: calc(var(--u) * 40);
-  --zone-gap: calc(var(--u) * 10);
+  --label-lane: calc(var(--u) * 60);
+  --art: calc(var(--u) * 38);
+  --gap: calc(var(--u) * 8);
   --spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 }
 
 html, body { height: 100%; overflow: hidden; }
 
-#glass { width: 100%; height: var(--glass-h); }
-#glass::part(surface) {
+/* Each segment aligns its rounded glass to the bottom edge. */
+.seg { display: flex; align-items: flex-end; }
+.glass { height: var(--glass-h); width: auto; }
+.glass::part(surface) {
   --dd-panel-pad: 0;
   position: relative; display: flex; flex-direction: row; align-items: center;
-  gap: var(--zone-gap); height: 100%; padding: 0 var(--glass-pad); overflow: visible;
-  background: var(--dd-surface); border: 0; border-top: 1px solid var(--dd-border);
-  border-radius: 0; box-shadow: var(--dd-shadow);
+  gap: var(--gap); height: 100%; padding: 0 var(--glass-pad); margin-bottom: var(--glass-float);
+  overflow: visible;
+  background: var(--dd-surface); border: 1px solid var(--dd-border);
+  border-radius: calc(var(--u) * 20); box-shadow: var(--dd-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
-.field { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.zone { position: relative; display: flex; flex: none; align-items: center; gap: var(--zone-gap); height: 100%; }
+/* The light field is clipped to the rounded glass. */
+.field { position: absolute; inset: 0; bottom: var(--glass-float); width: 100%; height: calc(100% - var(--glass-float));
+  border-radius: calc(var(--u) * 20); pointer-events: none; }
 
-dd-apps {
-  position: relative; display: flex; flex: 1; min-width: 0;
-  align-items: center; justify-content: center; gap: calc(var(--u) * 6); height: 100%;
+.slot { display: inline-flex; align-items: center; }
+.slot:empty { display: none; }
+
+#bar-center dd-apps {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  gap: calc(var(--u) * 6); height: 100%;
 }
 
 /* ---- entries + magnification ------------------------------------------- */
-dd-app, #start, #launcher, #deck {
-  width: var(--icon); height: calc(var(--icon) + var(--dot-lane)); padding: 0 0 var(--dot-lane);
-}
-/* The lift part carries our magnification: scale + rise driven by custom
-   properties widget.js writes per pointer frame (neighbours get a smaller
-   value from the Gaussian falloff). */
-dd-app::part(lift), #start::part(lift), #launcher::part(lift), #deck::part(lift) {
+dd-app, #start, #start-launcher, #deck { width: var(--icon); height: calc(var(--icon) + var(--dot-lane)); padding: 0 0 var(--dot-lane); }
+dd-app::part(lift), #start::part(lift), #start-launcher::part(lift), #deck::part(lift) {
   height: var(--icon); transform-origin: 50% 100%;
   transform: translateY(calc(var(--mag-lift, 0px) * -1)) scale(var(--mag-scale, 1));
   transition: transform 90ms var(--spring);
 }
-/* When magnification is off, fall back to the component's plain hover lift. */
 body.no-magnify dd-app:hover::part(lift),
 body.no-magnify #start:hover::part(lift),
-body.no-magnify #launcher:hover::part(lift),
+body.no-magnify #start-launcher:hover::part(lift),
 body.no-magnify #deck:hover::part(lift) { transform: translateY(calc(var(--lift) * -1)); }
 
 dd-app::part(icon) { width: 92%; height: 92%; }
@@ -58,80 +60,91 @@ dd-app::part(fallback) { font-size: calc(var(--icon) * 0.42); }
 dd-app::part(ring) { inset: calc(var(--u) * -3); border-width: 1px; transition: opacity var(--dd-anim-fast) var(--dd-ease); }
 dd-app[focused]:not([launching])::part(ring) { opacity: var(--dd-opacity-dim); }
 dd-app:active:not([launching])::part(lift), #start:active::part(lift),
-#launcher:active::part(lift), #deck:active::part(lift) { transform: translateY(calc(var(--u) * 1)) scale(0.92); }
+#start-launcher:active::part(lift), #deck:active::part(lift) { transform: translateY(calc(var(--u) * 1)) scale(0.92); }
 dd-app::part(indicator) { bottom: calc(var(--u) * 2); gap: calc(var(--u) * 3); }
 dd-app::part(dot) { width: calc(var(--u) * 3.5); height: calc(var(--u) * 3.5); transition: background var(--dd-anim-fast) var(--dd-ease); }
-dd-app::part(label), #start::part(label), #launcher::part(label), #deck::part(label) {
+dd-app::part(label), #start::part(label), #start-launcher::part(label), #deck::part(label) {
   bottom: var(--label-lane); transform: translate(-50%, calc(var(--u) * 3)); max-width: calc(var(--u) * 240);
   padding: calc(var(--u) * 2) calc(var(--u) * 6);
   transition: opacity var(--dd-anim-fast) var(--dd-ease), transform var(--dd-anim-fast) var(--dd-ease);
 }
-dd-app:hover::part(label), #start:hover::part(label), #launcher:hover::part(label), #deck:hover::part(label) {
-  opacity: 1; transform: translate(-50%, 0);
-}
+dd-app:hover::part(label), #start:hover::part(label), #start-launcher:hover::part(label), #deck:hover::part(label) { opacity: 1; transform: translate(-50%, 0); }
 
-/* ---- start + launcher -------------------------------------------------- */
-#start {
-  --dd-icon-size: calc(var(--icon) * 0.7);
-  --slack: calc((var(--glass-h) - var(--icon) - var(--dot-lane)) / 2);
-  align-self: stretch; width: calc(var(--icon) + var(--glass-pad)); height: auto;
-  padding: var(--slack) 0 calc(var(--slack) + var(--dot-lane)) var(--glass-pad);
-  margin-left: calc(var(--glass-pad) * -1); color: var(--dd-text);
-  transition: color var(--dd-anim-fast) var(--dd-ease);
-}
-#start::part(label) { left: calc(var(--glass-pad) + var(--icon) / 2); }
-#start:hover { color: var(--dd-accent); }
-#launcher { --dd-icon-size: calc(var(--icon) * 0.66); color: var(--dd-text); }
-#launcher:hover { color: var(--dd-accent); }
-#launcher[hidden] { display: none; }
-.launcher__ico { --dd-icon-size: calc(var(--icon) * 0.66); }
+#start, #start-launcher { --dd-icon-size: calc(var(--icon) * 0.7); color: var(--dd-text); transition: color var(--dd-anim-fast) var(--dd-ease); }
+#start:hover, #start-launcher:hover { color: var(--dd-accent); }
+#start[hidden], #start-launcher[hidden] { display: none; }
+.start-launcher__ico { --dd-icon-size: calc(var(--icon) * 0.66); }
 
-/* ---- clock (five faces) ------------------------------------------------ */
+/* ---- clock (fixed width per face) -------------------------------------- */
 .clock {
-  display: flex; align-items: center; justify-content: center; gap: 0;
-  background: transparent; border: 0; cursor: pointer; color: var(--dd-text);
-  font-family: var(--dd-font-display); line-height: 1; white-space: nowrap; padding: 0 calc(var(--u) * 4);
+  display: flex; align-items: center; justify-content: center; background: transparent; border: 0;
+  cursor: pointer; color: var(--dd-text); font-family: var(--dd-font-display); line-height: 1;
+  white-space: nowrap; padding: 0 calc(var(--u) * 4); flex: none;
 }
-.clock__text { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 1); padding-bottom: calc(var(--u) * 2); }
-.clock__time { font-size: calc(var(--u) * 24); font-weight: var(--dd-font-weight-semibold); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
+.clock[hidden] { display: none; }
+.clock__text { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: calc(var(--u) * 1); padding-bottom: calc(var(--u) * 2); }
+.clock__time { font-size: calc(var(--u) * 22); font-weight: var(--dd-font-weight-semibold); letter-spacing: 0.02em; font-variant-numeric: tabular-nums; }
 .clock__date { color: var(--dd-text-muted); font-family: var(--dd-font-sans); font-size: calc(var(--u) * 11); letter-spacing: 0.04em; text-transform: uppercase; }
-.clock[data-face="digital"] .clock__time { font-size: calc(var(--u) * 30); }
-.clock[data-face="worded"] .clock__time { font-size: calc(var(--u) * 15); font-weight: var(--dd-font-weight-medium); text-transform: capitalize; }
+.clock[data-face="standard"] { min-width: calc(var(--u) * 72); }
+.clock[data-face="large"] { min-width: calc(var(--u) * 92); }
+.clock[data-face="large"] .clock__time { font-size: calc(var(--u) * 30); }
+.clock[data-face="large"] .clock__date { display: none; }
+.clock[data-face="worded"] { min-width: calc(var(--u) * 110); }
+.clock[data-face="worded"] .clock__time { font-size: calc(var(--u) * 14); font-weight: var(--dd-font-weight-medium); text-transform: capitalize; white-space: normal; }
+.clock[data-face="dual"] { min-width: calc(var(--u) * 96); }
 .clock__face { width: var(--glass-h); height: var(--glass-h); }
 .clock__face[hidden] { display: none; }
-body:not(.show-clock) .clock { display: none; }
 
-/* ---- now playing (from Aurora) ----------------------------------------- */
+/* ---- now playing (fixed width + marquee) ------------------------------- */
 #deck { width: auto; height: var(--art); padding: 0; color: var(--dd-text); }
 #deck::part(lift) { height: 100%; }
 #deck::part(press) { inset: calc(var(--u) * -4); border-radius: var(--dd-radius-full); }
 #deck::part(label) { bottom: calc(var(--label-lane) - var(--dot-lane)); }
-.np { display: flex; align-items: center; gap: calc(var(--u) * 8); max-width: calc(var(--u) * 220); height: 100%; }
-.np__art-box {
-  position: relative; flex: none; width: var(--art); height: var(--art); overflow: hidden;
+.np { display: flex; align-items: center; gap: calc(var(--u) * 7); width: calc(var(--u) * 180); height: 100%; }
+body:not(.np-active) .np { width: var(--art); }
+.np__art-box { position: relative; flex: none; width: var(--art); height: var(--art); overflow: hidden;
   border-radius: var(--dd-radius-md); background: var(--dd-surface); border: 1px solid var(--dd-border);
-  transition: box-shadow var(--dd-anim-slow) var(--dd-ease);
-}
+  transition: box-shadow var(--dd-anim-slow) var(--dd-ease); }
 body.np-playing .np__art-box { box-shadow: 0 0 calc(var(--u) * 14) color-mix(in srgb, var(--dd-accent) 55%, transparent); }
 .np__art { display: block; width: 100%; height: 100%; object-fit: cover; }
 .np__fallback { --dd-icon-size: calc(var(--art) * 0.5); position: absolute; inset: 0; display: grid; place-items: center; color: var(--dd-text-muted); }
-.np__text { display: flex; flex-direction: column; gap: calc(var(--u) * 2); min-width: 0; font-family: var(--dd-font-sans); line-height: 1.1; text-align: left; }
-.np__title, .np__artist { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.np__title { font-size: calc(var(--u) * 12); font-weight: var(--dd-font-weight-medium); }
-.np__artist { color: var(--dd-text-muted); font-size: calc(var(--u) * 10); }
+.np__text { display: flex; flex-direction: column; gap: calc(var(--u) * 2); min-width: 0; flex: 1; font-family: var(--dd-font-sans); line-height: 1.1; text-align: left; }
+.np__marquee { overflow: hidden; width: 100%; }
+.np__title { display: inline-block; white-space: nowrap; font-size: calc(var(--u) * 12); font-weight: var(--dd-font-weight-medium); }
+.np__title.scroll { animation: marquee var(--marq-dur, 8s) linear infinite; }
+@keyframes marquee { 0%, 12% { transform: translateX(0); } 88%, 100% { transform: translateX(var(--marq, 0)); } }
+.np__artist { color: var(--dd-text-muted); font-size: calc(var(--u) * 10); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 body:not(.np-active) .np__text { display: none; }
 body:not(.show-media) #deck { display: none; }
 
-/* ---- vitals as numbers ------------------------------------------------- */
-.vitals { display: flex; align-items: center; gap: calc(var(--u) * 8); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); }
-.vnum { display: flex; flex-direction: column; align-items: center; line-height: 1; font-family: var(--dd-font-sans); }
-.vnum__v { font-size: calc(var(--u) * 16); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; color: var(--dd-text); }
+/* ---- vitals: numbers OR rings (fixed width) ---------------------------- */
+.vitals { display: flex; align-items: center; gap: calc(var(--u) * 8); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); flex: none; }
+.vitals-nums { display: flex; align-items: center; gap: calc(var(--u) * 8); }
+.vnum { display: flex; flex-direction: column; align-items: center; line-height: 1; width: calc(var(--u) * 34); font-family: var(--dd-font-sans); }
+.vnum__v { font-size: calc(var(--u) * 16); font-weight: var(--dd-font-weight-semibold); font-variant-numeric: tabular-nums; color: var(--v-normal, var(--dd-text)); transition: color var(--dd-anim-fast) var(--dd-ease); }
 .vnum__l { font-size: calc(var(--u) * 8); letter-spacing: 0.12em; text-transform: uppercase; color: var(--dd-text-muted); margin-top: calc(var(--u) * 2); }
-.vnum[data-level="warning"] .vnum__v { color: var(--dd-warning); }
-.vnum[data-level="danger"] .vnum__v { color: var(--dd-danger); }
+.vnum[data-level="warning"] .vnum__v { color: var(--v-warn, var(--dd-warning)); }
+.vnum[data-level="danger"] .vnum__v { color: var(--v-danger, var(--dd-danger)); }
 .vnum[hidden] { display: none; }
-body:not(.show-vitals) .vnum:not(.vnum--net) { display: none; }
-body:not(.show-net) .vnum--net { display: none; }
+.vitals-rings { display: none; align-items: center; gap: calc(var(--u) * 4); }
+.ring { width: calc(var(--u) * 28); height: calc(var(--u) * 28); transform: rotate(-90deg); }
+.ring[hidden] { display: none; }
+.ring__track, .ring__arc { fill: none; stroke-width: 3; }
+.ring__track { stroke: var(--dd-border); }
+.ring__arc { stroke: var(--v-normal, var(--dd-chart-1)); stroke-linecap: round; stroke-dasharray: 94.25; transition: stroke-dashoffset 600ms var(--dd-ease), stroke var(--dd-anim-slow) var(--dd-ease); }
+.ring[data-level="warning"] .ring__arc { stroke: var(--v-warn, var(--dd-warning)); }
+.ring[data-level="danger"] .ring__arc { stroke: var(--v-danger, var(--dd-danger)); }
+.ring__label { fill: var(--dd-text-muted); font-family: var(--dd-font-mono); font-size: 11px; font-weight: var(--dd-font-weight-semibold); text-anchor: middle; transform: rotate(90deg); transform-origin: 18px 18px; }
+body.vitals-rings .vitals-nums { display: none; }
+body.vitals-rings .vitals-rings { display: flex; }
+body:not(.show-vitals) .vitals { display: none; }
+
+/* ---- network (split ↓/↑, fixed width) ---------------------------------- */
+.net { display: flex; flex-direction: column; justify-content: center; gap: calc(var(--u) * 1); background: transparent; border: 0; cursor: pointer; padding: 0 calc(var(--u) * 2); width: calc(var(--u) * 52); flex: none; }
+.net__row { display: flex; align-items: center; gap: calc(var(--u) * 3); font-family: var(--dd-font-sans); }
+.net__arrow { color: var(--dd-text-muted); font-size: calc(var(--u) * 10); width: calc(var(--u) * 8); }
+.net__v { font-size: calc(var(--u) * 12); font-weight: var(--dd-font-weight-medium); font-variant-numeric: tabular-nums; color: var(--dd-text); text-align: right; flex: 1; }
+body:not(.show-net) .net { display: none; }
 
 /* ---- tray -------------------------------------------------------------- */
 .tray { flex: none; height: var(--icon); padding: 0 calc(var(--u) * 4); color: var(--dd-text); font-size: calc(var(--u) * 18); }
@@ -139,42 +152,21 @@ body:not(.show-net) .vnum--net { display: none; }
 
 /* ---- notification badges ----------------------------------------------- */
 .badges { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
-.badge {
-  position: absolute; top: 0; left: 0; min-width: calc(var(--u) * 15); height: calc(var(--u) * 15);
-  padding: 0 calc(var(--u) * 3); border-radius: var(--dd-radius-full);
-  background: var(--dd-danger); color: #fff; font-family: var(--dd-font-sans);
-  font-size: calc(var(--u) * 10); font-weight: var(--dd-font-weight-semibold);
-  display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
-  transition: transform 160ms var(--dd-ease);
-}
+.badge { position: absolute; top: 0; left: 0; min-width: calc(var(--u) * 15); height: calc(var(--u) * 15);
+  padding: 0 calc(var(--u) * 3); border-radius: var(--dd-radius-full); background: var(--dd-danger); color: #fff;
+  font-family: var(--dd-font-sans); font-size: calc(var(--u) * 10); font-weight: var(--dd-font-weight-semibold);
+  display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4); transition: transform 160ms var(--dd-ease); }
 .badge.pop { animation: badge-pop 320ms var(--dd-ease); }
 @keyframes badge-pop { 0% { scale: 0; } 60% { scale: 1.3; } 100% { scale: 1; } }
 
-/* ---- breathing pulse --------------------------------------------------- */
+/* ---- motion ------------------------------------------------------------ */
 @media (prefers-reduced-motion: no-preference) {
-  @keyframes dock-breathe {
-    0%, 100% { transform: translateY(0) scale(1); }
-    45% { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 6px var(--dd-accent)); }
-  }
-  body.breathe dd-app::part(lift),
-  body.breathe #start::part(lift),
-  body.breathe #launcher::part(lift),
-  body.breathe #deck::part(lift) {
-    animation: dock-breathe 2.2s var(--breathe-delay, 0s) var(--dd-ease) both;
-  }
-}
-
-/* ---- resting bob (from Aurora) ----------------------------------------- */
-@media (prefers-reduced-motion: no-preference) {
-  @keyframes aurora-bob {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(calc(var(--u) * -2.5)); }
-  }
+  @keyframes dock-breathe { 0%, 100% { transform: translateY(0) scale(1); } 45% { transform: translateY(-6px) scale(1.06); filter: drop-shadow(0 0 6px var(--dd-accent)); } }
+  body.breathe dd-app::part(lift), body.breathe #start::part(lift),
+  body.breathe #start-launcher::part(lift), body.breathe #deck::part(lift) { animation: dock-breathe 2.2s var(--breathe-delay, 0s) var(--dd-ease) both; }
+  @keyframes aurora-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(calc(var(--u) * -2.5)); } }
   dd-app:not([entering]):not([leaving]) { animation: aurora-bob 4200ms ease-in-out infinite; animation-delay: calc(var(--dd-app-delay, 0s) * -14); }
 }
-
 body.low-motion { --dd-anim-slow: var(--dd-anim-fast); }
 body.low-motion dd-app, body.low-motion dd-app::part(lift), body.low-motion dd-app::part(ring),
-body.low-motion #start::part(lift), body.low-motion #launcher::part(lift), body.low-motion #deck::part(lift) {
-  animation: none !important; will-change: auto;
-}
+body.low-motion #start::part(lift), body.low-motion #start-launcher::part(lift), body.low-motion #deck::part(lift) { animation: none !important; will-change: auto; }

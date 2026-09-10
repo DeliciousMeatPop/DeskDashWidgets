@@ -6,66 +6,84 @@
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <!-- One full-width dd-bar segment: the glass (56u) plus 20u of reach so a
-         magnified icon and the risen now-playing chip stay hoverable. The rest
-         of the 128u window is transparent headroom and clicks through. -->
-    <dd-bar id="bar" place="fill" reach="20">
-      <dd-panel id="glass" bare>
-        <!-- Aurora's living light field. Painted by widget.js. -->
-        <canvas id="field" class="field" aria-hidden="true"></canvas>
+    <!-- Three separate dd-bar segments: each captures only its own box, so the
+         empty gaps between them click through to the desktop / window beneath.
+         That is the "cut out where there's nothing" dock shape. -->
 
-        <div class="zone zone--left">
-          <!-- Real Windows Start (host component). Label is editable. -->
-          <dd-bar-button id="start" class="mag" action="start" label="Start"></dd-bar-button>
-          <!-- App launcher: opens the deck's Launcher tab. -->
-          <dd-bar-button id="launcher" class="mag" action="pane" pane-w="560" pane-h="380"
-            label="Apps" hidden>
-            <dd-icon class="launcher__ico" src="grid.svg" tint></dd-icon>
-          </dd-bar-button>
-          <!-- Clock: markup shape, readouts bound in widget.js; click cycles faces. -->
-          <button class="clock" id="clock" type="button" aria-label="Clock">
-            <span class="clock__text">
-              <span class="clock__time" data-bind="time"></span>
-              <span class="clock__date" data-bind="date"></span>
-            </span>
-            <canvas class="clock__face" id="clock-face" width="120" height="120" hidden></canvas>
-          </button>
-        </div>
+    <!-- LEFT: start + clock slots -->
+    <dd-bar id="bar-left" class="seg" place="left" reach="20">
+      <dd-panel class="glass" bare>
+        <canvas class="field" aria-hidden="true"></canvas>
+        <span class="slot" id="slot-start-left"></span>
+        <dd-bar-button id="start" class="mag" action="start" label="Start"></dd-bar-button>
+        <dd-bar-button id="start-launcher" class="mag" action="pane" pane-w="560" pane-h="360" label="Apps" hidden>
+          <dd-icon class="start-launcher__ico" src="grid.svg" tint></dd-icon>
+        </dd-bar-button>
+        <span class="slot" id="slot-start-right"></span>
+      </dd-panel>
+    </dd-bar>
 
-        <!-- Host app strip: launches, previews, pins, lifecycle are its. -->
+    <!-- CENTER: the app strip -->
+    <dd-bar id="bar-center" class="seg" place="center" reach="20">
+      <dd-panel class="glass" bare>
+        <canvas class="field" aria-hidden="true"></canvas>
         <dd-apps id="apps" settings="pins" indicator="dots" stagger="40" sortable></dd-apps>
-
-        <div class="zone zone--right">
-          <!-- Now-playing chip → opens the deck (control centre). -->
-          <dd-bar-button id="deck" class="mag" action="pane" pane-w="560" pane-h="360" label="Now playing">
-            <span class="np" id="np">
-              <span class="np__art-box">
-                <img class="np__art" data-bind="art" alt="" />
-                <dd-icon class="np__fallback" src="note.svg" tint data-bind="fallback"></dd-icon>
-              </span>
-              <span class="np__text">
-                <span class="np__title" data-bind="title"></span>
-                <span class="np__artist" data-bind="artist"></span>
-              </span>
-            </span>
-          </dd-bar-button>
-
-          <!-- Vitals as number percents (not rings). Opens the deck too. -->
-          <button class="vitals" id="vitals" type="button" aria-label="System">
-            <span class="vnum" data-bind="v-cpu"><b class="vnum__v" data-bind="cpu">–</b><i class="vnum__l">CPU</i></span>
-            <span class="vnum" data-bind="v-ram"><b class="vnum__v" data-bind="ram">–</b><i class="vnum__l">RAM</i></span>
-            <span class="vnum" data-bind="v-gpu"><b class="vnum__v" data-bind="gpu">–</b><i class="vnum__l">GPU</i></span>
-            <span class="vnum vnum--net" data-bind="v-net"><b class="vnum__v" data-bind="net">–</b><i class="vnum__l">NET</i></span>
-          </button>
-
-          <!-- System tray: component owns its visibility and the list. -->
-          <dd-tray-caret class="tray" settings="systray" separator hidden></dd-tray-caret>
-        </div>
-
-        <!-- Notification badges float over the app strip (positioned in JS). -->
         <div class="badges" id="badges" aria-hidden="true"></div>
       </dd-panel>
     </dd-bar>
+
+    <!-- RIGHT: now playing + vitals + clock slot + tray -->
+    <dd-bar id="bar-right" class="seg" place="right" reach="20">
+      <dd-panel class="glass" bare>
+        <canvas class="field" aria-hidden="true"></canvas>
+        <span class="slot" id="slot-info-left"></span>
+
+        <dd-bar-button id="deck" class="mag" action="pane" pane-w="560" pane-h="360" label="Now playing">
+          <span class="np" id="np">
+            <span class="np__art-box">
+              <img class="np__art" data-bind="art" alt="" />
+              <dd-icon class="np__fallback" src="note.svg" tint data-bind="fallback"></dd-icon>
+            </span>
+            <span class="np__text">
+              <span class="np__marquee"><span class="np__title" data-bind="title"></span></span>
+              <span class="np__artist" data-bind="artist"></span>
+            </span>
+          </span>
+        </dd-bar-button>
+
+        <!-- Vitals: numbers OR rings (toggled by body.vitals-rings). -->
+        <button class="vitals" id="vitals" type="button" aria-label="System">
+          <span class="vitals-nums">
+            <span class="vnum" data-bind="v-cpu"><b class="vnum__v" data-bind="cpu">–</b><i class="vnum__l">CPU</i></span>
+            <span class="vnum" data-bind="v-ram"><b class="vnum__v" data-bind="ram">–</b><i class="vnum__l">RAM</i></span>
+            <span class="vnum" data-bind="v-gpu"><b class="vnum__v" data-bind="gpu">–</b><i class="vnum__l">GPU</i></span>
+          </span>
+          <span class="vitals-rings">
+            <svg class="ring" viewBox="0 0 36 36" data-bind="ring-cpu"><circle class="ring__track" cx="18" cy="18" r="15"/><circle class="ring__arc" cx="18" cy="18" r="15" data-bind="arc-cpu"/><text class="ring__label" x="18" y="21.5">C</text></svg>
+            <svg class="ring" viewBox="0 0 36 36" data-bind="ring-ram"><circle class="ring__track" cx="18" cy="18" r="15"/><circle class="ring__arc" cx="18" cy="18" r="15" data-bind="arc-ram"/><text class="ring__label" x="18" y="21.5">M</text></svg>
+            <svg class="ring" viewBox="0 0 36 36" data-bind="ring-gpu"><circle class="ring__track" cx="18" cy="18" r="15"/><circle class="ring__arc" cx="18" cy="18" r="15" data-bind="arc-gpu"/><text class="ring__label" x="18" y="21.5">G</text></svg>
+          </span>
+        </button>
+
+        <!-- Network: download and upload on their own fixed-width lines. -->
+        <button class="net" id="net" type="button" aria-label="Network">
+          <span class="net__row"><span class="net__arrow">↓</span><b class="net__v" data-bind="net-rx">–</b></span>
+          <span class="net__row"><span class="net__arrow">↑</span><b class="net__v" data-bind="net-tx">–</b></span>
+        </button>
+
+        <span class="slot" id="slot-info-right"></span>
+        <dd-tray-caret class="tray" settings="systray" separator hidden></dd-tray-caret>
+      </dd-panel>
+    </dd-bar>
+
+    <!-- The clock lives here and JS re-parents it into the chosen slot. -->
+    <button class="clock" id="clock" type="button" aria-label="Clock" hidden>
+      <span class="clock__text">
+        <span class="clock__time" data-bind="time"></span>
+        <span class="clock__date" data-bind="date"></span>
+      </span>
+      <canvas class="clock__face" id="clock-face" width="120" height="120" hidden></canvas>
+    </button>
 
     <script src="/__sdk/widget-sdk.js"></script>
     <script src="widget.js"></script>

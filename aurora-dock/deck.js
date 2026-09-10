@@ -63,11 +63,13 @@ function pct(key) {
   if (key === "battery") return v.battery && typeof v.battery.percent === "number" ? v.battery.percent : null;
   return typeof v[key] === "number" ? v[key] * 100 : null;
 }
+let warnAt = 50, dangerAt = 90;
+try { const st = dd.settings.get() || {}; warnAt = st.vitalsWarnAt ?? 50; dangerAt = st.vitalsDangerAt ?? 90; } catch {}
 function severity(key) {
   const p = pct(key);
   if (p === null) return null;
   if (key === "battery") return p <= 15 ? "danger" : p <= 30 ? "warning" : null;
-  return p >= 85 ? "danger" : p >= 60 ? "warning" : null;
+  return p >= dangerAt ? "danger" : p >= warnAt ? "warning" : null;
 }
 function meterRow(key) {
   return {
