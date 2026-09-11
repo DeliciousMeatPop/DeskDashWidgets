@@ -5,7 +5,7 @@
   "apiVersion": 1,
   "minAppVersion": "0.3.5",
   "description": "Pulseglass Dock is a living glass taskbar for DeskDash that reacts to music and system activity. Inspired by Aurora, rebuilt as a full desktop dock — with magnification, number vitals, a movable clock, a network readout and a now-playing deck.",
-  "author": "you",
+  "author": "KaladinDMP",
   "kind": "bar",
   "bar": {
     "thickness": 128,
