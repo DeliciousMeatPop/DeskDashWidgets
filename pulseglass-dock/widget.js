@@ -500,12 +500,9 @@ async function findRecycle() {
   } catch (e) { dd.log("warn", "apps.list failed", (e && e.code) || String(e)); }
 }
 recycleEl.addEventListener("click", () => {
-  // ShellExecute the Recycle Bin (the host routes it to the default handler),
-  // falling back to the system-apps entry.
-  dd.links.open("shell:RecycleBinFolder").catch((e) => {
-    dd.log("warn", "recycle links.open failed", (e && e.code) || String(e));
-    if (recycleId) dd.apps.launch(recycleId).catch((err) => dd.log("warn", "recycle launch", (err && err.code) || String(err)));
-  });
+  // Open the Recycle Bin via its system-apps catalog entry.
+  if (recycleId) dd.apps.launch(recycleId).catch((e) => dd.log("warn", "recycle launch", (e && e.code) || String(e)));
+  else dd.log("warn", "recycle: no system-apps entry found");
 });
 // ---- tools button ----------------------------------------------------------
 // Shares the recycle bin's slot map (the same four dock anchors).
