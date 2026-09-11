@@ -251,27 +251,21 @@ async function setupMenu() {
     if (!id) { btn.disabled = true; continue; }
     btn.addEventListener("click", () => runThenClose(dd.apps.launch(id)));
   }
-  // File Explorer → open "This PC" via ShellExecute (the host routes it),
-  // falling back to the app catalog if that fails.
-  document.getElementById("menu-explorer").addEventListener("click", () => {
-    runThenClose(dd.links.open("shell:MyComputerFolder").catch((e) => {
-      dd.log("warn", "open files via shell failed, using app", (e && e.code) || String(e));
-      const id = find(/explorer|files?\b/i); return id ? dd.apps.launch(id) : undefined;
-    }));
-  });
+  // File Explorer → the file manager from the system-apps catalog.
+  const explorerBtn = document.getElementById("menu-explorer");
+  const explorerId = find(/explorer|files?\b/i);
+  if (!explorerId) explorerBtn.disabled = true;
+  else explorerBtn.addEventListener("click", () => runThenClose(dd.apps.launch(explorerId)));
 }
 
 // ---- tabs -----------------------------------------------------------------
-function setupTabs(st, initialTab) {
+function setupTabs(initialTab) {
   const tabs = Array.from(document.querySelectorAll(".tab"));
   const pages = { np: "page-np", sys: "page-sys", drives: "page-drives", net: "page-net", weather: "page-weather" };
-  const enabled = { np: true, sys: st.tabSystem !== false, drives: st.tabDrives !== false, net: st.tabNetwork !== false, weather: st.tabWeather !== false };
-  for (const t of tabs) t.hidden = !enabled[t.dataset.tab];
   let active = initialTab || null;
   if (!active) { try { active = localStorage.getItem("pulseglass-dock:tab") || "np"; } catch { active = "np"; } }
-  if (!enabled[active]) active = "np";
   function show(name) {
-    if (!pages[name] || !enabled[name]) name = "np";
+    if (!pages[name]) name = "np";
     try { localStorage.setItem("pulseglass-dock:tab", name); } catch {}
     for (const t of tabs) t.setAttribute("aria-selected", String(t.dataset.tab === name));
     for (const [k, id] of Object.entries(pages)) document.getElementById(id).hidden = k !== name;
@@ -345,7 +339,7 @@ async function main() {
 
   effect(renderDrives);
   setupNetGraph();
-  setupTabs(deckSettings, initialTab);
+  setupTabs(initialTab);
   void setupWeather(deckSettings);
   addEventListener("resize", updateMarquee);
 }

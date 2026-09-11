@@ -1,7 +1,7 @@
 {
   "id": "pulseglass-dock",
   "name": "Pulseglass Dock",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "apiVersion": 1,
   "minAppVersion": "0.3.5",
   "description": "Pulseglass Dock is a living glass taskbar for DeskDash that reacts to music and system activity. Inspired by Aurora, rebuilt as a full desktop dock — with magnification, number vitals, a movable clock, a network readout and a now-playing deck.",
@@ -86,7 +86,6 @@
     "mediaControls": true,
     "systemApps": true,
     "storage": true,
-    "links": { "prefixes": ["shell:"] },
     "http": { "hosts": ["geocoding-api.open-meteo.com", "api.open-meteo.com"], "rateLimit": 120 }
   }
 }
